@@ -32,11 +32,6 @@ if __name__ == "__main__":
     cruise_data = pd.read_csv('Data/CruiseMissiles/CMs_{}_{}.csv'.format(lead_pilot, flight_number))
     workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number))
 
-    # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
-    lead_alt = input("Enter Lead's assigned altitude (in feet, MSL): ")
-    wing_alt = input("Enter Wingman's assigned altitude (in feet, MSL): ")
-    CM_airspeed = input("Enter Cruise Missile's assigned airspeed (in knots): ")
-
     # Query the user to understand how many scenarios were flown in the flight
     num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
 
@@ -90,6 +85,13 @@ if __name__ == "__main__":
         autonomy_config = input(f"Enter the autonomy configuration for scenario {scenario} (HH, HA, AH, AA): ")
         assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
         num_CMs = 2 if scenario_type == 'A' else 5
+        correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
+        assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
+
+        # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
+        lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
+        wing_alt = input(f"Enter Wingman's assigned altitude (in feet, MSL) in scenario {scenario}: ")
+        CM_airspeed = input(f"Enter Cruise Missile's assigned airspeed (in knots) in scenario {scenario}: ")
 
         # determine if the data exists in the .csvs as timestamps or event numbers
         time_or_event = input(f"Is scenario {scenario} data defined using timestamps or event numbers? (T/E): ")
@@ -105,8 +107,69 @@ if __name__ == "__main__":
             scenario_data = sortie_df[sortie_df['TestCard_Lead'] == int(event_number)].copy()
             scenario_start_time = scenario_data['SampleTime'].min()
             scenario_end_time = scenario_data['SampleTime'].max()
-
         
+        scenario_data['CM_Altitude_Lead'] = lead_alt
+        scenario_data['CM_Altitude_Wing'] = wing_alt
+        scenario_data['CM_Airspeed'] = CM_airspeed
+
+        # --- Generate MOPs for this scenario ---
+        scenario_mops = {}
+        scenario_mops['Flight_Number'] = flight_number
+        scenario_mops['Lead_Pilot'] = lead_pilot
+        scenario_mops['Scenario_within_flight'] = scenario
+        scenario_mops['Scenario_Type'] = scenario_type
+        scenario_mops['Autonomy_Config'] = autonomy_config
+        scenario_mops['Correct_Sort'] = correct_sort
+        scenario_mops['Num_CMs'] = num_CMs
+        scenario_mops['Lead_Altitude_MSL_ft'] = lead_alt
+        scenario_mops['Wingman_Altitude_MSL_ft'] = wing_alt
+        scenario_mops['CM_Airspeed_kt'] = CM_airspeed
+        scenario_mops['Scenario_Start_Time'] = scenario_start_time
+        scenario_mops['Scenario_End_Time'] = scenario_end_time
+        scenario_mops['Scenario_Duration_s'] = (scenario_end_time - scenario_start_time).total_seconds()
+
+        # for each CM, determine whether the lead or wingman intercepted it
+        for cm_index in range(1, num_CMs + 1):
+            # first, generate a column for each CM for each aircraft (lead or wing) that indicates whether or not it is within the intercept criteria
+            scenario_data[f'Lead_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Lead')
+            scenario_data[f'Wing_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Wing') # TODO: Add functionality to handle multiple CMs
+
+            # determine which aircraft intercepted the CM and when
+            lead_intercept_times = scenario_data[scenario_data[f'Lead_Intercept_{cm_index}']].copy()
+            wing_intercept_times = scenario_data[scenario_data[f'Wing_Intercept_{cm_index}']].copy()
+            if not lead_intercept_times.empty and wing_intercept_times.empty:
+                lead_first_intercept = lead_intercept_times['Timestamp'].min()
+                scenario_mops[f'CM{cm_index}_Intercept_Time'] = lead_first_intercept
+                scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
+                scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Lead'
+            elif not wing_intercept_times.empty and lead_intercept_times.empty:
+                wing_first_intercept = wing_intercept_times['Timestamp'].min()
+                scenario_mops[f'CM{cm_index}_Intercept_Time'] = wing_first_intercept
+                scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
+                scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Wing'
+            elif not lead_intercept_times.empty and not wing_intercept_times.empty:
+                print(f"Both lead and wing intercepted the CM {cm_index}. Determining who intercepted first...")
+                lead_first_intercept = lead_intercept_times['Timestamp'].min()
+                wing_first_intercept = wing_intercept_times['Timestamp'].min()
+                if lead_first_intercept < wing_first_intercept:
+                    scenario_mops[f'CM{cm_index}_Intercept_Time'] = lead_first_intercept
+                    scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
+                    scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Lead'
+                else:
+                    scenario_mops[f'CM{cm_index}_Intercept_Time'] = wing_first_intercept
+                    scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
+                    scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Wing'
+            else:
+                print(f"No intercept detected for CM {cm_index}.")
+                scenario_mops[f'CM{cm_index}_No_Intercept'] = True
+            
+            # determine terminal intercept conditions if an intercept occurred
+            if f'CM{cm_index}_Intercepted_By' in scenario_mops:
+                intercept_role = scenario_mops[f'CM{cm_index}_Intercepted_By']
+                intercept_events = scenario_data[scenario_data[f'{intercept_role}_Intercept_{cm_index}']].copy()
+                # TODO - REWORK TERMINAL CONDITION ERROR CALCULATION
+
+             
 
 
     print(f"Data reduction complete. MOPs saved to {output_file_path}.")
