@@ -7,6 +7,49 @@ def convert_to_datetime(df, time_col):
     """Convert time column to datetime objects."""
     df[time_col] = pd.to_datetime(df[time_col], format='%H:%M:%S.%f')
     return df
+    
+def altitude_deviation(df, lead_alt, wing_alt, alt_block_radius=1000):
+    """
+    Calculate altitude deviation from assigned altitude block. Inputs are:
+    df: DataFrame containing scenario data
+    lead_alt: assigned altitude for lead in feet
+    wing_alt: assigned altitude for wingman in feet
+    alt_block_radius: radius of altitude block in feet (default ±1000ft)
+    """
+    alt_col_lead = f'Altitude_Msl_Lead'
+    alt_col_wing = f'Altitude_Msl_Wingman'
+    
+
+    # define a block of altitudes +- 1000ft from assigned altitude
+    lead_block_min = lead_alt - alt_block_radius
+    lead_block_max = lead_alt + alt_block_radius
+    wing_block_min = wing_alt - alt_block_radius
+    wing_block_max = wing_alt + alt_block_radius
+    
+    # count the number of times each aircraft is outside its assigned altitude block
+    df[f'Lead_Alt_Dev'] = np.where(
+        (df[alt_col_lead] < lead_block_min) | (df[alt_col_lead] > lead_block_max),
+        np.minimum(np.abs(df[alt_col_lead] - lead_block_min), np.abs(df[alt_col_lead] - lead_block_max)),
+        0
+    )
+    df[f'Wingman_Alt_Dev'] = np.where(
+        (df[alt_col_wing] < wing_block_min) | (df[alt_col_wing] > wing_block_max),
+        np.minimum(np.abs(df[alt_col_wing] - wing_block_min), np.abs(df[alt_col_wing] - wing_block_max)),
+        0
+    )
+
+    # the actual count is the number of times the Alt_Dev column transitions from false to true
+    lead_alt_dev_count = ((df[f'Lead_Alt_Dev'] > 0) & (df[f'Lead_Alt_Dev'].shift(1) == 0)).sum()
+    wing_alt_dev_count = ((df[f'Wingman_Alt_Dev'] > 0) & (df[f'Wingman_Alt_Dev'].shift(1) == 0)).sum()
+
+    # integrate the difference between actual altitude and assigned altitude block over time in feet-seconds for both aircraft, only when outside the block
+    df['Time_Diff'] = df['Timestamp'].diff().dt.total_seconds().fillna(0)
+    df['Lead_Alt_Dev_Integrated'] = df['Lead_Alt_Dev'] * df['Time_Diff']
+    df['Wingman_Alt_Dev_Integrated'] = df['Wingman_Alt_Dev'] * df['Time_Diff']
+    lead_alt_dev_integrated = df['Lead_Alt_Dev_Integrated'].sum()
+    wing_alt_dev_integrated = df['Wingman_Alt_Dev_Integrated'].sum()
+
+    return lead_alt_dev_count, wing_alt_dev_count, lead_alt_dev_integrated, wing_alt_dev_integrated
 
 def is_within_cone(df, role):
     """
@@ -14,6 +57,12 @@ def is_within_cone(df, role):
       1) Bank angle within ±10°
       2) Within 1.5 nm aft of CM
       3) Within 30° trailing cone of CM velocity vector
+      4) Heading within ±20° of CM heading
+    Inputs:
+    df: DataFrame containing scenario data
+    role: 'Lead' or 'Wingman'
+    Returns a boolean Series indicating if the aircraft meets all criteria for a given timestamp and cm.
+    TODO: MAY NEED TO PASS IN CM INDEX!!
     """
 
     # --- Column definitions ---
@@ -80,11 +129,17 @@ def is_within_cone(df, role):
     return intercept_criteria
 
 
-def terminal_condition_error(df, role):
+def terminal_condition_error(df, role, CM_index):
     """
-    Calculate terminal condition error for interception events.
+    Calculate terminal condition error for interception events. This includes relative altitude, heading, airspeed, and distance behind the CM at the moment of interception.
+    Inputs:
+    df: DataFrame containing scenario data
+    role: 'Lead' or 'Wingman'
+    CM_index: index of the CM being intercepted
+    Returns a DataFrame summarizing the terminal conditions at interception events.
     """
-    intercept_col = f'{role}_Intercept'
+
+    intercept_col = f'{role}_Intercept_{CM_index}'
     
     # filter to only interception events
     intercept_events = df[df[intercept_col]]
@@ -100,71 +155,26 @@ def terminal_condition_error(df, role):
         R = 3440.065
         lat_ac = np.radians(intercept_events[f'Latitude_{role}'])
         lon_ac = np.radians(intercept_events[f'Longitude_{role}'])
-        lat_cm = np.radians(intercept_events['Latitude'])
-        lon_cm = np.radians(intercept_events['Longitude'])
+        lat_cm = np.radians(intercept_events[f'Latitude_{CM_index}'])
+        lon_cm = np.radians(intercept_events['Longitude_CM_index'])
         dlat = lat_ac - lat_cm
         dlon = lon_ac - lon_cm
         dx = R * np.cos(lat_cm) * dlon
         dy = R * dlat
         dz = (intercept_events[alt_col] - intercept_events[f'CM_Altitude_{role}']) / 6076.12
         distance_to_cm = np.sqrt(dx**2 + dy**2 + dz**2)
+
+        # calculate relative altitude, heading, airspeed
+        rel_altitude = intercept_events[alt_col] - intercept_events[f'CM_Altitude_{role}']
+        rel_heading = intercept_events[f'True_Heading_{role}'] - intercept_events[f'Heading_{CM_index}']
+        rel_airspeed = intercept_events[airspeed_col] - intercept_events[f'CM_Airspeed']
+
         intercept_summary = pd.DataFrame({
             'Timestamp': intercept_events['Timestamp'],
-            'Altitude': intercept_events[alt_col],
-            'Airspeed': intercept_events[airspeed_col],
-            'Distance_to_CM': distance_to_cm
+            'Relative_Altitude_ft': rel_altitude,
+            'Relative_Heading_deg': rel_heading,
+            'Relative_Airspeed_kt': rel_airspeed,
+            'Distance_to_CM_nm': distance_to_cm
         })
+        
         return intercept_summary
-    
-def integrate_altitude_deviation(df, role, time_start=None, time_end=None):
-    """
-    Integrate altitude deviation over time to get total altitude deviation.
-    """
-    alt_dev_col = f'{role}_Alt_Dev'
-    
-    # Calculate time difference in seconds
-    df_copy = df.copy()
-    time_start = pd.to_datetime(time_start) if time_start else None
-    time_end = pd.to_datetime(time_end) if time_end else None
-    if time_start is not None:
-        df_copy = df_copy[df_copy['Timestamp'] >= time_start]
-    if time_end is not None:
-        df_copy = df_copy[df_copy['Timestamp'] <= time_end]
-    df_copy = df_copy.sort_values('Timestamp')
-    df_copy['Time_Diff'] = df_copy['Timestamp'].diff().dt.total_seconds().fillna(0)
-    
-    # Integrate altitude deviation over time
-    integrated_dev = (df_copy[alt_dev_col] * df_copy['Time_Diff']).cumsum()
-
-    # only return the final value
-    if not integrated_dev.empty:
-        integrated_dev = integrated_dev.iloc[-1]
-    else:
-        integrated_dev = 0.0
-    
-    return integrated_dev
-
-
-def altitude_deviation(df, role, lead_alt, wing_alt, alt_block_radius=1000):
-    """
-    Calculate altitude deviation from assigned altitude block.
-    """
-    alt_col = f'Altitude_Msl_{role}'
-    assigned_alt = lead_alt if role == 'Lead' else wing_alt
-
-    # define a block of altitudes +- 1000ft from assigned altitude
-    alt_block_min = assigned_alt - alt_block_radius
-    alt_block_max = assigned_alt + alt_block_radius
-    
-    # create a column for altitude deviation
-    deviation = np.where(
-        df[alt_col] < alt_block_min,
-        alt_block_min - df[alt_col],
-        np.where(
-            df[alt_col] > alt_block_max,
-            df[alt_col] - alt_block_max,
-            0
-        )
-    )
-    
-    return deviation

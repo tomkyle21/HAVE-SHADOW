@@ -128,9 +128,17 @@ if __name__ == "__main__":
         scenario_mops['Scenario_End_Time'] = scenario_end_time
         scenario_mops['Scenario_Duration_s'] = (scenario_end_time - scenario_start_time).total_seconds()
 
-        # for each CM, determine whether the lead or wingman intercepted it
+        # --- Altitude Deviation MOPs ---
+        alt_devs = altitude_deviation(scenario_data, int(lead_alt), int(wing_alt), alt_block_radius=1000)
+        scenario_mops['Lead_Altitude_Deviation_Count'] = alt_devs[0]
+        scenario_mops['Wingman_Altitude_Deviation_Count'] = alt_devs[1]
+        scenario_mops['Lead_Altitude_Deviation_Integrated_ft_s'] = alt_devs[2]
+        scenario_mops['Wingman_Altitude_Deviation_Integrated_ft_s'] = alt_devs[3]
+
+        # --- Cruise Missile Intercept MOPs ---
         for cm_index in range(1, num_CMs + 1):
             # first, generate a column for each CM for each aircraft (lead or wing) that indicates whether or not it is within the intercept criteria
+            # TODO - WILL NEED TO MODIFY CM INDEX TO ACTUALLY MATCH WHAT IS IN THE DATA
             scenario_data[f'Lead_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Lead')
             scenario_data[f'Wing_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Wing') # TODO: Add functionality to handle multiple CMs
 
@@ -140,12 +148,12 @@ if __name__ == "__main__":
             if not lead_intercept_times.empty and wing_intercept_times.empty:
                 lead_first_intercept = lead_intercept_times['Timestamp'].min()
                 scenario_mops[f'CM{cm_index}_Intercept_Time'] = lead_first_intercept
-                scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
+                scenario_mops[f'CM{cm_index}_Time_to_Intercept_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
                 scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Lead'
             elif not wing_intercept_times.empty and lead_intercept_times.empty:
                 wing_first_intercept = wing_intercept_times['Timestamp'].min()
                 scenario_mops[f'CM{cm_index}_Intercept_Time'] = wing_first_intercept
-                scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
+                scenario_mops[f'CM{cm_index}_Time_to_Intercept_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
                 scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Wing'
             elif not lead_intercept_times.empty and not wing_intercept_times.empty:
                 print(f"Both lead and wing intercepted the CM {cm_index}. Determining who intercepted first...")
@@ -153,23 +161,40 @@ if __name__ == "__main__":
                 wing_first_intercept = wing_intercept_times['Timestamp'].min()
                 if lead_first_intercept < wing_first_intercept:
                     scenario_mops[f'CM{cm_index}_Intercept_Time'] = lead_first_intercept
-                    scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
+                    scenario_mops[f'CM{cm_index}_Time_to_Intercept_s'] = (lead_first_intercept - scenario_start_time).total_seconds()
                     scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Lead'
                 else:
                     scenario_mops[f'CM{cm_index}_Intercept_Time'] = wing_first_intercept
-                    scenario_mops[f'CM{cm_index}_Intercept_Duration_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
+                    scenario_mops[f'CM{cm_index}_Time_to_Intercept_s'] = (wing_first_intercept - scenario_start_time).total_seconds()
                     scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'Wing'
             else:
                 print(f"No intercept detected for CM {cm_index}.")
-                scenario_mops[f'CM{cm_index}_No_Intercept'] = True
+                scenario_mops[f'CM{cm_index}_Intercepted_By'] = 'None'
             
             # determine terminal intercept conditions if an intercept occurred
-            if f'CM{cm_index}_Intercepted_By' in scenario_mops:
+            if scenario_mops[f'CM{cm_index}_Intercepted_By'] != 'None':
                 intercept_role = scenario_mops[f'CM{cm_index}_Intercepted_By']
                 intercept_events = scenario_data[scenario_data[f'{intercept_role}_Intercept_{cm_index}']].copy()
                 # TODO - REWORK TERMINAL CONDITION ERROR CALCULATION
+                terminal_conditions = terminal_condition_error(intercept_events, intercept_role, cm_index)
+                scenario_mops[f'CM{cm_index}_Terminal_Pos_Error_ft'] = terminal_conditions['Distance_to_CM_nm']
+                scenario_mops[f'CM{cm_index}_Terminal_Heading_Error_deg'] = terminal_conditions['Relative_Heading_deg']
+                scenario_mops[f'CM{cm_index}_Terminal_Airspeed_Error_kt'] = terminal_conditions['Relative_Airspeed_kt']
+                scenario_mops[f'CM{cm_index}_Terminal_Altitude_Error_ft'] = terminal_conditions['Relative_Altitude_ft']
+            
+        # determine the total proportion of cruise missiles intercepted
+        intercepted_cms = [scenario_mops[f'CM{cm_index}_Intercepted_By'] for cm_index in range(1, num_CMs + 1)]
+        scenario_mops['Total_CMs_Intercepted'] = sum(1 for x in intercepted_cms if x != 'None')
+        scenario_mops['Proportion_CMs_Intercepted'] = scenario_mops['Total_CMs_Intercepted'] / num_CMs
+        
+        # TODO - Surface threat position error and percent identified
+        # TODO - Communications MOPs (Update Score)
+        # TODO - Time to Consent
 
-             
-
+        # add scenario MOPs to the overall MOPs dataframe
+        mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
+    
+    # Save MOPs to CSV
+    mops_df.to_csv(f'{output_file_path}/MOPs_{lead_pilot}_Flight{flight_number}.csv', index=False)
 
     print(f"Data reduction complete. MOPs saved to {output_file_path}.")
