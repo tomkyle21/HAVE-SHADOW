@@ -16,8 +16,8 @@ def altitude_deviation(df, lead_alt, wing_alt, alt_block_radius=1000):
     wing_alt: assigned altitude for wingman in feet
     alt_block_radius: radius of altitude block in feet (default ±1000ft)
     """
-    alt_col_lead = f'Altitude_Msl_Lead'
-    alt_col_wing = f'Altitude_Msl_Wingman'
+    alt_col_lead = f'Altitude_Lead'
+    alt_col_wing = f'Altitude_Wing'
     
 
     # define a block of altitudes +- 1000ft from assigned altitude
@@ -69,7 +69,7 @@ def is_within_cone(df, role):
     roll_col = f'Roll_{role}'
     lat_col = f'Latitude_{role}'
     lon_col = f'Longitude_{role}'
-    alt_col = f'Altitude_Msl_{role}'
+    alt_col = f'Altitude_{role}'
     heading_col = f'True_Heading_{role}'
 
     cm_lat_col = 'Latitude'
@@ -148,7 +148,7 @@ def terminal_condition_error(df, role, CM_index):
     if intercept_events.empty:
         return None
     else:
-        alt_col = f'Altitude_Msl_{role}'
+        alt_col = f'Altitude_{role}'
         airspeed_col = f'True_Airspeed_{role}'
         
         # Calculate distance to CM

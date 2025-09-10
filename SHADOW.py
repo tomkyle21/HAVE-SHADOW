@@ -30,7 +30,7 @@ if __name__ == "__main__":
     lead_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number))
     wing_data = pd.read_csv('Data/Wingman/Wing_{}_{}.csv'.format(lead_pilot, flight_number))
     cruise_data = pd.read_csv('Data/CruiseMissiles/CMs_{}_{}.csv'.format(lead_pilot, flight_number))
-    workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number))
+    # workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number))
 
     # Query the user to understand how many scenarios were flown in the flight
     num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
@@ -39,13 +39,13 @@ if __name__ == "__main__":
     mops_df = pd.DataFrame()
 
     # define sortie_df to hold all the data from the flight
-    Altitude_Col = 'Altitude_Msl'
-    Airpseed_Col = 'True_Airspeed'
-    cols_L29s = ['Timestamp', 'SampleDate', 'SampleTime', 'TestCard', 'True_Heading', 'Roll',
-            'Latitude', 'Longitude', 'Vertical_Speed', Altitude_Col, Airpseed_Col]
-    cols_CMs = ['Timestamp', 'SampleDate', 'SampleTime', 'TestCard', 'DisSource',
-                'DisTime', 'Aplication', 'EntId', 'Latitude', 'Longitude', 'Heading']
-    
+    Altitude_Col = 'Altitude'
+    # Airpseed_Col = 'True_Airspeed'  # TODO - NO AIRSPEED FOR NOW!!
+    cols_L29s = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt', 'Heading', 'Roll',
+            'Latitude', 'Longitude', Altitude_Col]
+    cols_CMs = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt',
+                'EntId', 'Latitude', 'Longitude', 'Heading']
+
     # Make sure Timestamp is sorted and in datetime format
     lead_data['Timestamp'] = pd.to_datetime(lead_data['Timestamp'])
     wing_data['Timestamp'] = pd.to_datetime(wing_data['Timestamp'])
@@ -54,6 +54,9 @@ if __name__ == "__main__":
     lead_data = lead_data.sort_values('Timestamp')
     wing_data = wing_data.sort_values('Timestamp')
     cruise_data = cruise_data.sort_values('Timestamp')
+
+    lead_data = lead_data[lead_data['MarkingTxt'] == 'HAWK11']
+    wing_data = wing_data[wing_data['MarkingTxt'] == 'AMBUSH51']
 
     # Merge wing onto lead (treat lead as "truth")
     # This is necessary since the lead aircraft is the primary source of data and the timest stamps may not match perfectly.
@@ -103,10 +106,12 @@ if __name__ == "__main__":
             scenario_start_time = datetime.strptime(start_time, '%H:%M:%S.%f')
             scenario_end_time = datetime.strptime(end_time, '%H:%M:%S.%f')
         elif time_or_event.upper() == 'E':
-            event_number = input(f"Enter the event number for scenario {scenario}: ")
-            scenario_data = sortie_df[sortie_df['TestCard_Lead'] == int(event_number)].copy()
+            scenario_data = sortie_df[(sortie_df['Scenario'] == scenario_type) & (sortie_df['Configuration'] == autonomy_config)].copy()
             scenario_start_time = scenario_data['SampleTime'].min()
             scenario_end_time = scenario_data['SampleTime'].max()
+            # convert both to datetime objects
+            scenario_start_time = datetime.strptime(scenario_start_time, '%H:%M:%S.%f')
+            scenario_end_time = datetime.strptime(scenario_end_time, '%H:%M:%S.%f')
         
         scenario_data['CM_Altitude_Lead'] = lead_alt
         scenario_data['CM_Altitude_Wing'] = wing_alt
@@ -135,10 +140,13 @@ if __name__ == "__main__":
         scenario_mops['Lead_Altitude_Deviation_Integrated_ft_s'] = alt_devs[2]
         scenario_mops['Wingman_Altitude_Deviation_Integrated_ft_s'] = alt_devs[3]
 
+        print(scenario_mops) # DELETE ME WHEN DONE DEBUGGING
+
         # --- Cruise Missile Intercept MOPs ---
         for cm_index in range(1, num_CMs + 1):
             # first, generate a column for each CM for each aircraft (lead or wing) that indicates whether or not it is within the intercept criteria
             # TODO - WILL NEED TO MODIFY CM INDEX TO ACTUALLY MATCH WHAT IS IN THE DATA
+            # TODO - 9 SEPTEMBER, CURRENT ISSUE LIES HERE!!!!
             scenario_data[f'Lead_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Lead')
             scenario_data[f'Wing_Intercept_{cm_index}'] = is_within_cone(scenario_data, role='Wing') # TODO: Add functionality to handle multiple CMs
 
