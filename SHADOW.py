@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 # import custom modules
 from Utils.DataReduction import *
 
-
 if __name__ == "__main__":
     # Define file paths
     input_file_path = 'Data/'
@@ -87,7 +86,6 @@ if __name__ == "__main__":
         assert scenario_type in ['A', 'B', 'C', 'D'], "Invalid scenario type. Please enter A, B, C, or D."
         autonomy_config = input(f"Enter the autonomy configuration for scenario {scenario} (HH, HA, AH, AA): ")
         assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
-        num_CMs = 2 if scenario_type == 'A' else 5
         correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
         assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
 
@@ -112,6 +110,12 @@ if __name__ == "__main__":
             # convert both to datetime objects
             scenario_start_time = datetime.strptime(scenario_start_time, '%H:%M:%S.%f')
             scenario_end_time = datetime.strptime(scenario_end_time, '%H:%M:%S.%f')
+        
+        num_CMs = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].nunique()
+        # also add the condition that the JASSM EntId shows up more then 10 times to avoid counting erroneous data points
+        # CURRENT ISSUE - Some CMs spawn towards the end of scenario A that shouldn't be counted
+        # Doesn't seem to be an issue for other scenarios, though!!
+        print(num_CMs)
         
         scenario_data['CM_Altitude_Lead'] = lead_alt
         scenario_data['CM_Altitude_Wing'] = wing_alt
