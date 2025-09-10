@@ -26,10 +26,10 @@ if __name__ == "__main__":
     flight_number = input("Enter flight number: ")
 
     # Load data
-    lead_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number))
-    wing_data = pd.read_csv('Data/Wingman/Wing_{}_{}.csv'.format(lead_pilot, flight_number))
-    cruise_data = pd.read_csv('Data/CruiseMissiles/CMs_{}_{}.csv'.format(lead_pilot, flight_number))
-    # workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number))
+    flight_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number))
+    # wing_data = pd.read_csv('Data/Wingman/Wing_{}_{}.csv'.format(lead_pilot, flight_number))
+    # cruise_data = pd.read_csv('Data/CruiseMissiles/CMs_{}_{}.csv'.format(lead_pilot, flight_number))
+    # workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number)) # ONLY USING BLACK DIS
 
     # Query the user to understand how many scenarios were flown in the flight
     num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
@@ -41,45 +41,27 @@ if __name__ == "__main__":
     Altitude_Col = 'Altitude'
     # Airpseed_Col = 'True_Airspeed'  # TODO - NO AIRSPEED FOR NOW!!
     cols_L29s = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt', 'Heading', 'Roll',
-            'Latitude', 'Longitude', Altitude_Col]
+                 'Latitude', 'Longitude', Altitude_Col]
     cols_CMs = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt',
                 'EntId', 'Latitude', 'Longitude', 'Heading']
 
     # Make sure Timestamp is sorted and in datetime format
-    lead_data['Timestamp'] = pd.to_datetime(lead_data['Timestamp'])
-    wing_data['Timestamp'] = pd.to_datetime(wing_data['Timestamp'])
-    cruise_data['Timestamp'] = pd.to_datetime(cruise_data['Timestamp'])
+    flight_data['Timestamp'] = pd.to_datetime(flight_data['Timestamp'])
+    flight_data['SampleTime'] = pd.to_datetime(flight_data['SampleTime'])
+    flight_data['SampleDate'] = pd.to_datetime(flight_data['SampleDate'])
+    # wing_data['Timestamp'] = pd.to_datetime(wing_data['Timestamp'])
+    # cruise_data['Timestamp'] = pd.to_datetime(cruise_data['Timestamp'])
 
-    lead_data = lead_data.sort_values('Timestamp')
-    wing_data = wing_data.sort_values('Timestamp')
-    cruise_data = cruise_data.sort_values('Timestamp')
-
-    lead_data = lead_data[lead_data['MarkingTxt'] == 'HAWK11']
-    wing_data = wing_data[wing_data['MarkingTxt'] == 'AMBUSH51']
-
-    # Merge wing onto lead (treat lead as "truth")
-    # This is necessary since the lead aircraft is the primary source of data and the timest stamps may not match perfectly.
-    sortie_df = pd.merge_asof(
-        lead_data[cols_L29s].sort_values('Timestamp'),
-        wing_data[cols_L29s].sort_values('Timestamp'),
-        on='Timestamp',
-        direction='nearest',
-        suffixes=('_Lead', '_Wing'),
-        tolerance=pd.Timedelta('50ms')  # adjust tolerance as needed
-    )
-
-    # Merge cruise missiles the same way
-    sortie_df = pd.merge_asof(
-        sortie_df,
-        cruise_data[cols_CMs].sort_values('Timestamp'),
-        on='Timestamp',
-        direction='nearest',
-        suffixes=('', '_CM'),
-        tolerance=pd.Timedelta('50ms')
-    )
+    # OPL Naming Convention - Black is AMBUSH51, Blue is HAWK11
+    # OPL Gouge - Black jet (AMBUSH51) DIS data is best.
+    # OPL Convo - LinVels are in ECEF and m/s, may need to use other table and fixing column names now. 
+    lead_data = flight_data[flight_data['MarkingTxt'] == 'AMBUSH51']
+    wing_data = flight_data[flight_data['MarkingTxt'] == 'HAWK11']
+    cruise_data = flight_data[flight_data['MarkingTxt'] == 'JASSM']
+    sam_data = flight_data[flight_data['MarkingTxt'] == 'SAM']
 
     for scenario in range(1, num_scenarios + 1):
-        print(f"Processing scenario {scenario}...")
+        print(f"Processing scenario {scenario} of {num_scenarios}...")
 
         # query the user for the scenario type and autonomy configuration
         scenario_type = input(f"Enter the type of scenario {scenario} (A, B, C, or D): ")
@@ -88,34 +70,21 @@ if __name__ == "__main__":
         assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
         correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
         assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
+        num_tac_comms = input(f"Enter the number of tactical communications in scenario {scenario}: ")
 
         # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
         lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
         wing_alt = input(f"Enter Wingman's assigned altitude (in feet, MSL) in scenario {scenario}: ")
-        CM_airspeed = input(f"Enter Cruise Missile's assigned airspeed (in knots) in scenario {scenario}: ")
+        CM_airspeed = 150
 
-        # determine if the data exists in the .csvs as timestamps or event numbers
-        time_or_event = input(f"Is scenario {scenario} data defined using timestamps or event numbers? (T/E): ")
-        if time_or_event.upper() == 'T':
-            # get start and end times
-            start_time = input(f"Enter the start time for scenario {scenario} (HH:MM:SS.sss): ")
-            end_time = input(f"Enter the end time for scenario {scenario} (HH:MM:SS.sss): ")
-            scenario_data = sortie_df[(sortie_df['SampleTime'] >= start_time) & (sortie_df['SampleTime'] <= end_time)].copy()
-            scenario_start_time = datetime.strptime(start_time, '%H:%M:%S.%f')
-            scenario_end_time = datetime.strptime(end_time, '%H:%M:%S.%f')
-        elif time_or_event.upper() == 'E':
-            scenario_data = sortie_df[(sortie_df['Scenario'] == scenario_type) & (sortie_df['Configuration'] == autonomy_config)].copy()
-            scenario_start_time = scenario_data['SampleTime'].min()
-            scenario_end_time = scenario_data['SampleTime'].max()
-            # convert both to datetime objects
-            scenario_start_time = datetime.strptime(scenario_start_time, '%H:%M:%S.%f')
-            scenario_end_time = datetime.strptime(scenario_end_time, '%H:%M:%S.%f')
+        scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
+        scenario_start_time = scenario_data['SampleTime'].min()
+        scenario_end_time = scenario_data['SampleTime'].max()
         
         num_CMs = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].nunique()
         # also add the condition that the JASSM EntId shows up more then 10 times to avoid counting erroneous data points
         # CURRENT ISSUE - Some CMs spawn towards the end of scenario A that shouldn't be counted
         # Doesn't seem to be an issue for other scenarios, though!!
-        print(num_CMs)
         
         scenario_data['CM_Altitude_Lead'] = lead_alt
         scenario_data['CM_Altitude_Wing'] = wing_alt
@@ -137,14 +106,15 @@ if __name__ == "__main__":
         scenario_mops['Scenario_End_Time'] = scenario_end_time
         scenario_mops['Scenario_Duration_s'] = (scenario_end_time - scenario_start_time).total_seconds()
 
+        print(scenario_mops) # DELETE ME WHEN DONE DEBUGGING
+
         # --- Altitude Deviation MOPs ---
-        alt_devs = altitude_deviation(scenario_data, int(lead_alt), int(wing_alt), alt_block_radius=1000)
+        # --- RESTART HERE --- 
+        alt_devs = altitude_deviation(scenario_data, int(lead_alt), int(wing_alt), alt_block_radius=500)
         scenario_mops['Lead_Altitude_Deviation_Count'] = alt_devs[0]
         scenario_mops['Wingman_Altitude_Deviation_Count'] = alt_devs[1]
         scenario_mops['Lead_Altitude_Deviation_Integrated_ft_s'] = alt_devs[2]
         scenario_mops['Wingman_Altitude_Deviation_Integrated_ft_s'] = alt_devs[3]
-
-        print(scenario_mops) # DELETE ME WHEN DONE DEBUGGING
 
         # --- Cruise Missile Intercept MOPs ---
         for cm_index in range(1, num_CMs + 1):
