@@ -110,6 +110,9 @@ if __name__ == "__main__":
 
         # --- Altitude Deviation MOPs ---
         # --- RESTART HERE --- 
+
+
+        
         alt_devs = altitude_deviation(scenario_data, int(lead_alt), int(wing_alt), alt_block_radius=500)
         scenario_mops['Lead_Altitude_Deviation_Count'] = alt_devs[0]
         scenario_mops['Wingman_Altitude_Deviation_Count'] = alt_devs[1]
@@ -170,7 +173,6 @@ if __name__ == "__main__":
         scenario_mops['Proportion_CMs_Intercepted'] = scenario_mops['Total_CMs_Intercepted'] / num_CMs
         
         # TODO - Surface threat position error and percent identified
-        # TODO - Communications MOPs (Update Score)
         # TODO - Time to Consent
 
         # add scenario MOPs to the overall MOPs dataframe
