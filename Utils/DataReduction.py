@@ -84,6 +84,7 @@ def is_within_cone(scenario_data, cm_index, role):
     cm_last_time = df_cm['SampleTime'].max()
 
     # --- CONDITION 1: Bank Angle ---
+    # THIS CONDITION IS MORE STRESSING THAN WE THOUGHT - MAY NEED TO RELAX
     cond1 = df[bank_col].abs() <= 10
     df['Bank_Angle_Condition'] = cond1
     
@@ -93,40 +94,40 @@ def is_within_cone(scenario_data, cm_index, role):
     dlon = (df[lon_col] - df[cm_lon_col]) * 60.0 * np.cos(np.radians(df[cm_lat_col]))
     # Distance between aircraft and CM
     df['distance_nm'] = np.sqrt(dlat**2 + dlon**2)
-    # CM heading unit vector
-    cm_heading_rad = np.radians(df[cm_heading_col])
-    cm_vec = np.column_stack([np.sin(cm_heading_rad), np.cos(cm_heading_rad)])
-    # Relative vector CM → AC
-    rel_vec = np.column_stack([dlon, dlat])
-    # Dot product to check if AC is behind CM (aft)
-    dot = np.sum(cm_vec * rel_vec, axis=1)
-    # Condition 2 = within 1.5 nm AND aft
     cond2 = df['distance_nm'] <= 1.5
     df['Distance_Condition'] = cond2
     
-    # --- CONDITION 3: Inside trailing cone ---
-    dist = np.linalg.norm(rel_vec, axis=1)
-    cos_angle = dot / (dist * np.linalg.norm(cm_vec, axis=1))
-    cos_angle = np.clip(cos_angle, -1, 1)      # numerical safety
-    angle = np.degrees(np.arccos(cos_angle))
-    cond3 = angle <= 30
+    # --- CONDITION 3a: Inside trailing cone VELOCITY ---
+    vel_vector_cm = np.column_stack([df['LinVelX_cm'], df['LinVelY_cm'], df['LinVelZ_cm']])
+    vel_vector_ac = np.column_stack([df['LinVelX_ac'], df['LinVelY_ac'], df['LinVelZ_ac']])
+    dot = np.sum(vel_vector_cm * vel_vector_ac, axis=1)
+    angle_between_vec = np.degrees(np.arccos(np.clip(dot / (np.linalg.norm(vel_vector_cm, axis=1) * np.linalg.norm(vel_vector_ac, axis=1)), -1, 1)))
+    df['angle_between_vel'] = angle_between_vec
+    cond_vel = angle_between_vec <= 30
+
+    # --- CONDITION 3b: Inside trailing cone POSITION ---
+    # Angle between CM heading vector and relative position vector
+    # use EcefX_ac, EcefY_ac, EcefZ_ac and EcefX_cm, EcefY_cm, EcefZ_cm for the position vectors
+    pos_vector_ac = np.column_stack([df['EcefX_ac'], df['EcefY_ac'], df['EcefZ_ac']])
+    pos_vector_cm = np.column_stack([df['EcefX_cm'], df['EcefY_cm'], df['EcefZ_cm']])
+    rel_pos = pos_vector_cm - pos_vector_ac
+    dot = np.sum(rel_pos * vel_vector_cm, axis=1)
+    angle_between_pos = np.degrees(np.arccos(np.clip(dot / (np.linalg.norm(rel_pos, axis=1) * np.linalg.norm(vel_vector_cm, axis=1)), -1, 1)))
+    df['angle_between_pos'] = angle_between_pos
+    cond3 = angle_between_pos <= 30
     df['Cone_Condition'] = cond3
 
-    # --- CONDITION 4: Heading within ±20° of CM heading ---
-    heading_diff = (df[heading_col] - df[cm_heading_col] + 180) % 360 - 180
-    cond4 = heading_diff.abs() <= 20
-
-    intercept_criteria = cond1 & cond2 & cond3 & cond4
+    intercept_criteria = cond2 & cond3 # Q: INCLUDE COND_VEL?
+    df['Intercept_Criteria'] = intercept_criteria
 
     if intercept_criteria.any():
         # get the min SampleTime where intercept_criteria is True
-        # print the length of the df where intercept_criteria is True
-        print(f"Length of df where intercept criteria is met: {intercept_criteria.sum()}")
         cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
         print(f"{role} meets intercept criteria for CM {cm_index} at {cm_int_time}")
         print('This CM disappears at', cm_last_time)
-
-    df['Intercept_Complete'] = intercept_criteria
+        print('Time to kill:', (cm_last_time - cm_int_time).total_seconds(), 'seconds')
+        # save df to csv for debugging
+        df.to_csv(f'{role}_CM{cm_index}_intercept_debug.csv', index=False)
 
     # --- Combine all conditions ---
     return intercept_criteria
