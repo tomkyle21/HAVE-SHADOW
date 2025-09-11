@@ -63,7 +63,6 @@ if __name__ == "__main__":
 
     for scenario in range(1, num_scenarios + 1):
         print(f"Processing scenario {scenario} of {num_scenarios}...")
-
         # query the user for the scenario type and autonomy configuration
         scenario_type = input(f"Enter the type of scenario {scenario} (A, B, C, or D): ")
         assert scenario_type in ['A', 'B', 'C', 'D'], "Invalid scenario type. Please enter A, B, C, or D."
@@ -167,9 +166,6 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Altitude_at_Intercept_ft'] = intercept_mops['Altitude_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Altitude_Offset_at_Intercept_ft'] = intercept_mops['Altitude_Offset_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
-        
-        print(scenario_mops)
-
 
         # --- SAM Identification MOPs ---
         SAM_data = scenario_data[scenario_data['MarkingTxt'] == 'SAM']
