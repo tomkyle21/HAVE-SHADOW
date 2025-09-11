@@ -28,12 +28,16 @@ if __name__ == "__main__":
     lead_airspeed_data = pd.read_csv('Data/Lead/Lead_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
     wing_airpseed_data = pd.read_csv('Data/Wingman/Wing_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
 
+    # Load Inputs
+    input_data = pd.read_csv('Inputs/Input_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
+
     # Merge airspeed data into flight_data
     print('Merging airspeed data into DIS data...')
     flight_data = brute_force_merge_airspeed(flight_data, lead_airspeed_data, wing_airpseed_data) # this line takes a minute ...
 
     # Query the user to understand how many scenarios were flown in the flight
-    num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
+    # num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
+    num_scenarios = len(input_data)
 
     # generate a blank dataframe to hold the MOPs
     mops_df = pd.DataFrame()
@@ -64,13 +68,18 @@ if __name__ == "__main__":
     for scenario in range(1, num_scenarios + 1):
         print(f"Processing scenario {scenario} of {num_scenarios}...")
         # query the user for the scenario type and autonomy configuration
-        scenario_type = input(f"Enter the type of scenario {scenario} (A, B, C, or D): ")
-        assert scenario_type in ['A', 'B', 'C', 'D'], "Invalid scenario type. Please enter A, B, C, or D."
-        autonomy_config = input(f"Enter the autonomy configuration for scenario {scenario} (HH, HA, AH, AA): ")
-        assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
-        correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
-        assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
-        num_tac_comms = input(f"Enter the number of tactical communications in scenario {scenario}: ")
+        # scenario_type = input(f"Enter the type of scenario {scenario} (A, B, C, or D): ")
+        # assert scenario_type in ['A', 'B', 'C', 'D'], "Invalid scenario type. Please enter A, B, C, or D."
+        # autonomy_config = input(f"Enter the autonomy configuration for scenario {scenario} (HH, HA, AH, AA): ")
+        # assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
+        # correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
+        # assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
+        # num_tac_comms = input(f"Enter the number of tactical communications in scenario {scenario}: ")
+
+        scenario_type = input_data[input_data['Scenario_Num'] == scenario]['Scenario'].values[0]
+        autonomy_config = input_data[input_data['Scenario_Num'] == scenario]['Configuration'].values[0]
+        correct_sort = input_data[input_data['Scenario_Num'] == scenario]['Correct_Acquistion'].values[0]
+        num_tac_comms = input_data[input_data['Scenario_Num'] == scenario]['Tac_Comms'].values[0]
 
         # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
         # lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
@@ -116,9 +125,6 @@ if __name__ == "__main__":
         scenario_mops['Wingman_Altitude_Deviation_Count'] = alt_devs_wing[0]
         scenario_mops['Lead_Altitude_Deviation_Integrated_ft_s'] = alt_devs_lead[1]
         scenario_mops['Wingman_Altitude_Deviation_Integrated_ft_s'] = alt_devs_wing[1]
-
-        print('Done here')
-        print(scenario_mops) # DELETE ME WHEN DONE DEBUGGING
 
         # --- Cruise Missile Intercept MOPs ---
         CM_time_to_intercept_dict = {}
@@ -172,13 +178,14 @@ if __name__ == "__main__":
         SAM_data['SampleTime'] = pd.to_datetime(SAM_data['SampleTime'])
         num_sams = SAM_data['EntId'].nunique()
         SAM_IDs = SAM_data['EntId'].unique()
-        SAMs_Identified = input(f"Enter the number of SAMs identified by the Lead in scenario {scenario}: ")
+        # SAMs_Identified = input(f"Enter the number of SAMs identified by the Lead in scenario {scenario}: ")
+        SAMs_Identified = input_data[input_data['Scenario_Num'] == scenario]['SAMS_ID'].values[0]
         scenario_mops['Num_SAMs'] = num_sams
         scenario_mops['SAMs_Identified_by_Lead'] = SAMs_Identified
         scenario_mops['Proportion_SAMs_Identified'] = int(SAMs_Identified) / num_sams if num_sams > 0 else 0
         # --- COMMENTING OUT FOR NOW - MORE FUNCTIONALITY REQ'D --- 
-        # bullseye_lat = 41.38494111111111
-        # bullseye_lon = -91.24627944444444
+        bullseye_lat = 41.38494111111111
+        bullseye_lon = -91.24627944444444
         # for i, sam_ID in enumerate(SAM_IDs, start=1):
         #     scenario_mops[f'SAM{i}_EntId'] = sam_ID
         #     SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()

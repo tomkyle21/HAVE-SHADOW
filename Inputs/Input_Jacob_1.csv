@@ -1,0 +1,4 @@
+Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID
+1,Jacob,1,A,HH,Y,4,6
+2,Jacob,1,B,HH,Y,27,6
+3,Jacob,1,A,HA,Y,4,4
