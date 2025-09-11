@@ -127,7 +127,6 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
     scenario_start_time = scenario_data['SampleTime'].min()
 
     # --- CONDITION NO LONGER USED!!: Bank Angle ---
-    # THIS CONDITION IS MORE STRESSING THAN WE THOUGHT - MAY NEED TO RELAX
     cond_bank = df[bank_col].abs() <= 10
     df['Bank_Angle_Condition'] = cond_bank
     
@@ -180,12 +179,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
         airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
         bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
 
-        # get the min SampleTime where intercept_criteria is True
         cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
-        # print(f"{role} meets intercept criteria for CM {cm_index} at {cm_int_time}")
-        # print('This CM disappears at', cm_last_time)
-        # print('Time to kill:', (cm_last_time - cm_int_time).total_seconds(), 'seconds')
-        # df.to_csv(f'{role}_CM{cm_index}_intercept_debug.csv', index=False) # FOR DEBUGGING!!
 
         # define a dictionary that records the intercept event
         intercept_event = {

@@ -183,33 +183,25 @@ if __name__ == "__main__":
         scenario_mops['Num_SAMs'] = num_sams
         scenario_mops['SAMs_Identified_by_Lead'] = SAMs_Identified
         scenario_mops['Proportion_SAMs_Identified'] = int(SAMs_Identified) / num_sams if num_sams > 0 else 0
-        # --- COMMENTING OUT FOR NOW - MORE FUNCTIONALITY REQ'D --- 
         bullseye_lat = 41.38494111111111
         bullseye_lon = -91.24627944444444
-        # for i, sam_ID in enumerate(SAM_IDs, start=1):
-        #     scenario_mops[f'SAM{i}_EntId'] = sam_ID
-        #     SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()
-        #     SAM_spawn_date = SAM_spawn_time.date()
-        #     SAM_lat = SAM_data[SAM_data['EntId'] == sam_ID]['Latitude'].iloc[0]
-        #     SAM_lon = SAM_data[SAM_data['EntId'] == sam_ID]['Longitude'].iloc[0]
-        #     SAM_bullseye_call = bearing_range_flat(bullseye_lat, bullseye_lon, SAM_lat, SAM_lon, axis_deg=120)
-        #     bullseye_bearing = SAM_bullseye_call[0]
-        #     bullseye_range = SAM_bullseye_call[1]
-        #     identified_SAM = input(f"Did Lead call out SAM {sam_ID} at {round(bullseye_bearing)} deg / {round(bullseye_range)} nm? (Y/N): ")
-        #     if identified_SAM == 'Y':
-        #         ID_time = input(f"Copt and paste the SAM ID time for {round(bullseye_bearing)} deg / {round(bullseye_range)} from the data logs: ")
-        #         # add SAM_spawn_date to ID_time
-        #         ID_time = pd.to_datetime(f"{SAM_spawn_date} {ID_time}")
-        #         print('ID_time before adjustment:', ID_time)
-        #         # add 5 hours to ID_time to convert from central to Zulu
-        #         ID_time = ID_time + pd.DateOffset(hours=5)
-        #         print('ID_time after adjustment:', ID_time)
-        #         print('SAM spawn time:', SAM_spawn_time)
-        #         time_to_ID = (ID_time - SAM_spawn_time).total_seconds()
-        #         if time_to_ID < 0:
-        #             ID_time = ID_time + pd.DateOffset(hours=2)
-        #             time_to_ID = (ID_time - SAM_spawn_time).total_seconds()
-        #         print(f"Time to ID for SAM {sam_ID} is {time_to_ID} seconds.")
+        # record the SAM_ID_Times as stamped in the CR.
+        SAM_ID_Times = []
+        for i in range(1, int(SAMs_Identified) + 1):
+            SAM_ID_Times.append(input_data[input_data['Scenario_Num'] == scenario][f'SAM_{i}_ID_Time_s'].values[0])
+            SAM_ID_Times[-1] = pd.to_datetime(f"{scenario_start_time.date()} {SAM_ID_Times[-1]}") + pd.DateOffset(hours=5)  # convert to Zulu
+        for i, sam_ID in enumerate(SAM_IDs, start=1):
+            scenario_mops[f'SAM{i}_EntId'] = sam_ID
+            SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()
+            SAM_spawn_date = SAM_spawn_time.date()
+            # make scenario_mops[f'SAM{i}_Time_to_ID_s'] 30s
+            scenario_mops[f'SAM{i}_Time_to_ID_s'] = 30
+            # check to see if there is a SAM_ID_Time within SAM_spawn_time to SAM_spawn_time + 30s, replace time_to_ID_s if so
+            for sam_id_time in SAM_ID_Times:
+                if SAM_spawn_time <= sam_id_time <= (SAM_spawn_time + pd.DateOffset(seconds=30)):
+                    scenario_mops[f'SAM{i}_Time_to_ID_s'] = (sam_id_time - SAM_spawn_time).total_seconds()
+
+
 
         mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
 
