@@ -9,9 +9,7 @@ Here is what must be done prior to running this script:
 # import libraries
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-
-# import custom modules
+import math
 from Utils.DataReduction import *
 
 if __name__ == "__main__":
@@ -26,10 +24,13 @@ if __name__ == "__main__":
     flight_number = input("Enter flight number: ")
 
     # Load data
-    flight_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number))
-    # wing_data = pd.read_csv('Data/Wingman/Wing_{}_{}.csv'.format(lead_pilot, flight_number))
-    # cruise_data = pd.read_csv('Data/CruiseMissiles/CMs_{}_{}.csv'.format(lead_pilot, flight_number))
-    # workload_data = pd.read_csv('Data/Workload/Workload_{}_{}.csv'.format(lead_pilot, flight_number)) # ONLY USING BLACK DIS
+    flight_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
+    lead_airspeed_data = pd.read_csv('Data/Lead/Lead_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
+    wing_airpseed_data = pd.read_csv('Data/Wingman/Wing_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
+
+    # Merge airspeed data into flight_data
+    print('Merging airspeed data into DIS data...')
+    flight_data = brute_force_merge_airspeed(flight_data, lead_airspeed_data, wing_airpseed_data) # this line takes a minute ...
 
     # Query the user to understand how many scenarios were flown in the flight
     num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
@@ -73,13 +74,16 @@ if __name__ == "__main__":
         num_tac_comms = input(f"Enter the number of tactical communications in scenario {scenario}: ")
 
         # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
-        lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
-        wing_alt = input(f"Enter Wingman's assigned altitude (in feet, MSL) in scenario {scenario}: ")
+        # lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
+        # wing_alt = input(f"Enter Wingman's assigned altitude (in feet, MSL) in scenario {scenario}: ")
         CM_airspeed = 150
 
         scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
         scenario_start_time = scenario_data['SampleTime'].min()
         scenario_end_time = scenario_data['SampleTime'].max()
+        # record the first lead_alt and wing_alt in the defined scenario
+        lead_alt = scenario_data[scenario_data['MarkingTxt'] == 'AMBUSH51']['Altitude'].iloc[0]
+        wing_alt = scenario_data[scenario_data['MarkingTxt'] == 'HAWK11']['Altitude'].iloc[0]
         
         num_CMs = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].nunique()
         CM_EntIds = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].unique()
@@ -118,11 +122,96 @@ if __name__ == "__main__":
         print(scenario_mops) # DELETE ME WHEN DONE DEBUGGING
 
         # --- Cruise Missile Intercept MOPs ---
+        CM_time_to_intercept_dict = {}
         for cm_ID in CM_EntIds:
-            is_within_cone(scenario_data, cm_index=cm_ID, role='Lead')
-            is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman')
-    
+            # if within_cone is not empty:
+            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt)
+                CM_time_to_intercept_dict[cm_ID] = intercept_mops['Time_to_Intercept_s']
+            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt)
+                CM_time_to_intercept_dict[cm_ID] = intercept_mops['Time_to_Intercept_s']
+        
+        CM_time_to_intercept_dict = dict(sorted(CM_time_to_intercept_dict.items(), key=lambda item: item[1]))
+        total_CMs_intercepted = len(CM_time_to_intercept_dict)
+        prop_CMs_intercepted = total_CMs_intercepted / num_CMs if num_CMs > 0 else 0
+        scenario_mops['Total_CMs_Intercepted'] = total_CMs_intercepted
+        scenario_mops['Proportion_CMs_Intercepted'] = prop_CMs_intercepted
+        # iterate through the cm_s in order of time to intercept
+        for i, (cm_ID, time_to_intercept) in enumerate(CM_time_to_intercept_dict.items(), start=1):
+            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt)
+                scenario_mops[f'CM{i}_EntId'] = cm_ID
+                scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
+                scenario_mops[f'CM{i}_Time_to_Intercept_s'] = intercept_mops['Time_to_Intercept_s']
+                scenario_mops[f'CM{i}_Time_to_Consent_s'] = intercept_mops['Time_to_Consent_s']
+                scenario_mops[f'CM{i}_Airspeed_at_Intercept_kt'] = intercept_mops['Airspeed_at_Intercept_kt']
+                scenario_mops[f'CM{i}_Airspeed_Diff_at_Intercept_kt'] = intercept_mops['Airspeed_Diff_at_Intercept_kt']
+                scenario_mops[f'CM{i}_Heading_at_Intercept_deg'] = intercept_mops['Heading_at_Intercept_deg']
+                scenario_mops[f'CM{i}_CM_Heading_at_Intercept_deg'] = intercept_mops['CM_Heading_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Heading_Diff_at_Intercept_deg'] = intercept_mops['Heading_Diff_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Altitude_at_Intercept_ft'] = intercept_mops['Altitude_at_Intercept_ft']
+                scenario_mops[f'CM{i}_Altitude_Offset_at_Intercept_ft'] = intercept_mops['Altitude_Offset_at_Intercept_ft']
+                scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
+            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt)
+                scenario_mops[f'CM{i}_EntId'] = cm_ID
+                scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
+                scenario_mops[f'CM{i}_Time_to_Intercept_s'] = intercept_mops['Time_to_Intercept_s']
+                scenario_mops[f'CM{i}_Time_to_Consent_s'] = intercept_mops['Time_to_Consent_s']
+                scenario_mops[f'CM{i}_Airspeed_at_Intercept_kt'] = intercept_mops['Airspeed_at_Intercept_kt']
+                scenario_mops[f'CM{i}_Airspeed_Diff_at_Intercept_kt'] = intercept_mops['Airspeed_Diff_at_Intercept_kt']
+                scenario_mops[f'CM{i}_Heading_at_Intercept_deg'] = intercept_mops['Heading_at_Intercept_deg']
+                scenario_mops[f'CM{i}_CM_Heading_at_Intercept_deg'] = intercept_mops['CM_Heading_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Heading_Diff_at_Intercept_deg'] = intercept_mops['Heading_Diff_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Altitude_at_Intercept_ft'] = intercept_mops['Altitude_at_Intercept_ft']
+                scenario_mops[f'CM{i}_Altitude_Offset_at_Intercept_ft'] = intercept_mops['Altitude_Offset_at_Intercept_ft']
+                scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
+        
+        print(scenario_mops)
+
+
+        # --- SAM Identification MOPs ---
+        SAM_data = scenario_data[scenario_data['MarkingTxt'] == 'SAM']
+        SAM_data['SampleTime'] = pd.to_datetime(SAM_data['SampleTime'])
+        num_sams = SAM_data['EntId'].nunique()
+        SAM_IDs = SAM_data['EntId'].unique()
+        SAMs_Identified = input(f"Enter the number of SAMs identified by the Lead in scenario {scenario}: ")
+        scenario_mops['Num_SAMs'] = num_sams
+        scenario_mops['SAMs_Identified_by_Lead'] = SAMs_Identified
+        scenario_mops['Proportion_SAMs_Identified'] = int(SAMs_Identified) / num_sams if num_sams > 0 else 0
+        # --- COMMENTING OUT FOR NOW - MORE FUNCTIONALITY REQ'D --- 
+        # bullseye_lat = 41.38494111111111
+        # bullseye_lon = -91.24627944444444
+        # for i, sam_ID in enumerate(SAM_IDs, start=1):
+        #     scenario_mops[f'SAM{i}_EntId'] = sam_ID
+        #     SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()
+        #     SAM_spawn_date = SAM_spawn_time.date()
+        #     SAM_lat = SAM_data[SAM_data['EntId'] == sam_ID]['Latitude'].iloc[0]
+        #     SAM_lon = SAM_data[SAM_data['EntId'] == sam_ID]['Longitude'].iloc[0]
+        #     SAM_bullseye_call = bearing_range_flat(bullseye_lat, bullseye_lon, SAM_lat, SAM_lon, axis_deg=120)
+        #     bullseye_bearing = SAM_bullseye_call[0]
+        #     bullseye_range = SAM_bullseye_call[1]
+        #     identified_SAM = input(f"Did Lead call out SAM {sam_ID} at {round(bullseye_bearing)} deg / {round(bullseye_range)} nm? (Y/N): ")
+        #     if identified_SAM == 'Y':
+        #         ID_time = input(f"Copt and paste the SAM ID time for {round(bullseye_bearing)} deg / {round(bullseye_range)} from the data logs: ")
+        #         # add SAM_spawn_date to ID_time
+        #         ID_time = pd.to_datetime(f"{SAM_spawn_date} {ID_time}")
+        #         print('ID_time before adjustment:', ID_time)
+        #         # add 5 hours to ID_time to convert from central to Zulu
+        #         ID_time = ID_time + pd.DateOffset(hours=5)
+        #         print('ID_time after adjustment:', ID_time)
+        #         print('SAM spawn time:', SAM_spawn_time)
+        #         time_to_ID = (ID_time - SAM_spawn_time).total_seconds()
+        #         if time_to_ID < 0:
+        #             ID_time = ID_time + pd.DateOffset(hours=2)
+        #             time_to_ID = (ID_time - SAM_spawn_time).total_seconds()
+        #         print(f"Time to ID for SAM {sam_ID} is {time_to_ID} seconds.")
+
+        mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
+
+
     # Save MOPs to CSV
-    # mops_df.to_csv(f'{output_file_path}/MOPs_{lead_pilot}_Flight{flight_number}.csv', index=False)
+    mops_df.to_csv(f'{output_file_path}/MOPs_{lead_pilot}_Flight{flight_number}.csv', index=False)
 
     print(f"Data reduction complete. MOPs saved to {output_file_path}.")
