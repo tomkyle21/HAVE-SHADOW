@@ -148,8 +148,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
     cond_vel = angle_between_vec <= 30
 
     # --- CONDITION 2: Inside trailing cone POSITION ---
-    pos_vector_ac = np.column_stack([df['ECEFX_ac'], df['ECEFY_ac'], df['ECEFZ_ac']])
-    pos_vector_cm = np.column_stack([df['ECEFX_cm'], df['ECEFY_cm'], df['ECEFZ_cm']])
+    pos_vector_ac = np.column_stack([df['ECEF_X_ac'], df['ECEF_Y_ac'], df['ECEF_Z_ac']])
+    pos_vector_cm = np.column_stack([df['ECEF_X_cm'], df['ECEF_Y_cm'], df['ECEF_Z_cm']])
     rel_pos = pos_vector_cm - pos_vector_ac
     dot = np.sum(rel_pos * vel_vector_cm, axis=1)
     angle_between_pos = np.degrees(np.arccos(np.clip(dot / (np.linalg.norm(rel_pos, axis=1) * np.linalg.norm(vel_vector_cm, axis=1)), -1, 1)))
@@ -178,6 +178,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
         alt_offset_at_intercept = np.abs(altitude_at_intercept - scenario_alt)
         airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
         bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
+        distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
 
         cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
 
@@ -195,7 +196,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
             'Heading_Diff_at_Intercept_deg': heading_diff_at_intercept,
             'Altitude_at_Intercept_ft': altitude_at_intercept,
             'Altitude_Offset_at_Intercept_ft': alt_offset_at_intercept,
-            'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept
+            'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept,
+            'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept
         }
 
         return intercept_event

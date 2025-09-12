@@ -75,6 +75,7 @@ if __name__ == "__main__":
         scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
         scenario_start_time = scenario_data['SampleTime'].min()
         scenario_end_time = scenario_data['SampleTime'].max()
+        scenario_duration = (scenario_end_time - scenario_start_time).total_seconds()
         # record the first lead_alt and wing_alt in the defined scenario
         lead_alt = scenario_data[scenario_data['MarkingTxt'] == 'AMBUSH51']['Altitude'].iloc[0]
         wing_alt = scenario_data[scenario_data['MarkingTxt'] == 'HAWK11']['Altitude'].iloc[0]
@@ -93,6 +94,8 @@ if __name__ == "__main__":
         scenario_mops['Scenario_within_flight'] = scenario
         scenario_mops['Scenario_Type'] = scenario_type
         scenario_mops['Autonomy_Config'] = autonomy_config
+        scenario_mops['Scenario_Duration_s'] = scenario_duration
+        scenario_mops['Num_Tactical_Comms'] = num_tac_comms
         scenario_mops['Correct_Sort'] = correct_sort
         scenario_mops['Num_CMs'] = num_CMs
         scenario_mops['Lead_Altitude_MSL_ft'] = lead_alt
@@ -143,6 +146,7 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Altitude_at_Intercept_ft'] = intercept_mops['Altitude_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Altitude_Offset_at_Intercept_ft'] = intercept_mops['Altitude_Offset_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Distance_from_CM_at_Intercept_nm'] = intercept_mops['Distance_from_CM_at_Intercept_nm']
             elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
                 intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
@@ -157,6 +161,7 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Altitude_at_Intercept_ft'] = intercept_mops['Altitude_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Altitude_Offset_at_Intercept_ft'] = intercept_mops['Altitude_Offset_at_Intercept_ft']
                 scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
+                scenario_mops[f'CM{i}_Distance_from_CM_at_Intercept_nm'] = intercept_mops['Distance_from_CM_at_Intercept_nm']
 
         # --- SAM Identification MOPs ---
         SAM_data = scenario_data[scenario_data['MarkingTxt'] == 'SAM']
