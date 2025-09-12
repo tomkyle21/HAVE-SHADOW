@@ -1,4 +1,4 @@
-Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID
-,,,,,,,
-,,,,,,,
-,,,,,,,
+Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s,SAM_2_ID_Time_s,SAM_3_ID_Time_s,SAM_4_ID_Time_s,SAM_5_ID_Time_s,SAM_6_ID_Time_s,SAM_7_ID_Time_s,SAM_8_ID_Time_s,SAM_9_ID_Time_s,SAM_10_ID_Time_s,SAM_11_ID_Time_s,SAM_12_ID_Time_s,SAM_13_ID_Time_s,SAM_14_ID_Time_s,SAM_15_ID_Time_s,SAM_16_ID_Time_s
+,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,

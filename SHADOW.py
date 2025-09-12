@@ -9,7 +9,7 @@ Here is what must be done prior to running this script:
 # import libraries
 import numpy as np
 import pandas as pd
-import math
+import re
 from Utils.DataReduction import *
 
 if __name__ == "__main__":
@@ -36,7 +36,6 @@ if __name__ == "__main__":
     flight_data = brute_force_merge_airspeed(flight_data, lead_airspeed_data, wing_airpseed_data) # this line takes a minute ...
 
     # Query the user to understand how many scenarios were flown in the flight
-    # num_scenarios = int(input("Enter the number of scenarios flown in this flight: "))
     num_scenarios = len(input_data)
 
     # generate a blank dataframe to hold the MOPs
@@ -54,12 +53,10 @@ if __name__ == "__main__":
     flight_data['Timestamp'] = pd.to_datetime(flight_data['Timestamp'])
     flight_data['SampleTime'] = pd.to_datetime(flight_data['SampleTime'])
     flight_data['SampleDate'] = pd.to_datetime(flight_data['SampleDate'])
-    # wing_data['Timestamp'] = pd.to_datetime(wing_data['Timestamp'])
-    # cruise_data['Timestamp'] = pd.to_datetime(cruise_data['Timestamp'])
 
     # OPL Naming Convention - Black is AMBUSH51, Blue is HAWK11
     # OPL Gouge - Black jet (AMBUSH51) DIS data is best.
-    # OPL Convo - LinVels are in ECEF and m/s, may need to use other table and fixing column names now. 
+    # OPL Convo - LinVels are in ECEF and m/s
     lead_data = flight_data[flight_data['MarkingTxt'] == 'AMBUSH51']
     wing_data = flight_data[flight_data['MarkingTxt'] == 'HAWK11']
     cruise_data = flight_data[flight_data['MarkingTxt'] == 'JASSM']
@@ -67,23 +64,12 @@ if __name__ == "__main__":
 
     for scenario in range(1, num_scenarios + 1):
         print(f"Processing scenario {scenario} of {num_scenarios}...")
-        # query the user for the scenario type and autonomy configuration
-        # scenario_type = input(f"Enter the type of scenario {scenario} (A, B, C, or D): ")
-        # assert scenario_type in ['A', 'B', 'C', 'D'], "Invalid scenario type. Please enter A, B, C, or D."
-        # autonomy_config = input(f"Enter the autonomy configuration for scenario {scenario} (HH, HA, AH, AA): ")
-        # assert autonomy_config in ['HH', 'HA', 'AH', 'AA'], "Invalid autonomy configuration. Please enter HH, HA, AH, or AA."
-        # correct_sort = input(f"Did the wingman in scenario {scenario} intercept the correct cruise missiles? (Y/N): ")
-        # assert correct_sort in ['Y', 'N'], "Invalid input. Please enter Y or N."
-        # num_tac_comms = input(f"Enter the number of tactical communications in scenario {scenario}: ")
 
         scenario_type = input_data[input_data['Scenario_Num'] == scenario]['Scenario'].values[0]
         autonomy_config = input_data[input_data['Scenario_Num'] == scenario]['Configuration'].values[0]
         correct_sort = input_data[input_data['Scenario_Num'] == scenario]['Correct_Acquistion'].values[0]
         num_tac_comms = input_data[input_data['Scenario_Num'] == scenario]['Tac_Comms'].values[0]
 
-        # Query the user for meta data: lead alt, wing alt, cruise missile airspeed
-        # lead_alt = input(f"Enter Lead's assigned altitude (in feet, MSL) in scenario {scenario}: ")
-        # wing_alt = input(f"Enter Wingman's assigned altitude (in feet, MSL) in scenario {scenario}: ")
         CM_airspeed = 150
 
         scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
@@ -116,8 +102,7 @@ if __name__ == "__main__":
         scenario_mops['Scenario_End_Time'] = scenario_end_time
         scenario_mops['Scenario_Duration_s'] = (scenario_end_time - scenario_start_time).total_seconds()
 
-        # --- Altitude Deviation MOPs ---
-        # --- RESTART HERE ---         
+        # --- Altitude Deviation MOPs ---      
         alt_devs_lead = altitude_deviation(scenario_data, role='Lead', assigned_alt=int(lead_alt), alt_block_radius=500)
         alt_devs_wing = altitude_deviation(scenario_data, role='Wingman', assigned_alt=int(wing_alt), alt_block_radius=500)
 
@@ -180,6 +165,7 @@ if __name__ == "__main__":
         SAM_IDs = SAM_data['EntId'].unique()
         # SAMs_Identified = input(f"Enter the number of SAMs identified by the Lead in scenario {scenario}: ")
         SAMs_Identified = input_data[input_data['Scenario_Num'] == scenario]['SAMS_ID'].values[0]
+        print(f'Scenario {scenario} has {num_sams} SAMs, Lead identified {SAMs_Identified}')
         scenario_mops['Num_SAMs'] = num_sams
         scenario_mops['SAMs_Identified_by_Lead'] = SAMs_Identified
         scenario_mops['Proportion_SAMs_Identified'] = int(SAMs_Identified) / num_sams if num_sams > 0 else 0
@@ -189,7 +175,8 @@ if __name__ == "__main__":
         SAM_ID_Times = []
         for i in range(1, int(SAMs_Identified) + 1):
             SAM_ID_Times.append(input_data[input_data['Scenario_Num'] == scenario][f'SAM_{i}_ID_Time_s'].values[0])
-            SAM_ID_Times[-1] = pd.to_datetime(f"{scenario_start_time.date()} {SAM_ID_Times[-1]}") + pd.DateOffset(hours=5)  # convert to Zulu
+            clean_time = SAM_ID_Times[-1]
+            SAM_ID_Times[-1] = pd.to_datetime(f"{scenario_start_time.date()} {clean_time}", errors="coerce") + pd.DateOffset(hours=5) # convert to Zulu
         for i, sam_ID in enumerate(SAM_IDs, start=1):
             scenario_mops[f'SAM{i}_EntId'] = sam_ID
             SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()
