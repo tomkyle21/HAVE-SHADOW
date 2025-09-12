@@ -9,7 +9,6 @@ Here is what must be done prior to running this script:
 # import libraries
 import numpy as np
 import pandas as pd
-import re
 from Utils.DataReduction import *
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 # import data analysis libraries
 import numpy as np
 import pandas as pd
-import math
 
 def convert_to_datetime(df, time_col):
     """Convert time column to datetime objects."""

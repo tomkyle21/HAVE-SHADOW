@@ -1,9 +1,11 @@
 # HAVE-SHADOW
 This repository will serve as the comprehensive code and data base for the HAVE SHADOW TMP as part of USAF TPS class 25A.
 
-The SHADOW.py file contains the main script that converts raw flight test data to MOPs. The Utils folder contains scripts with data reduction functions, and the SHADOW.py folder utilizes these extensively. 
+The SHADOW.py file contains the main script that converts raw flight test data to MOPs. The Utils folder contains scripts with data reduction functions, and the SHADOW.py folder utilizes these extensively.
 
-The only required packages are numpy, pandas, and datetime, so this should be able to run on a government laptop. 
+ 
+
+The only required packages are numpy and pandas, so this should be able to run on a government laptop. 
 
 Hit up Flash is anything breaks or you have any Qs!
 
