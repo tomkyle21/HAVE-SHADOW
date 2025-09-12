@@ -1,6 +1,7 @@
 # import data analysis libraries
 import numpy as np
 import pandas as pd
+pd.options.mode.chained_assignment = None
 
 def convert_to_datetime(df, time_col):
     """Convert time column to datetime objects."""
@@ -196,6 +197,5 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
             'Altitude_Offset_at_Intercept_ft': alt_offset_at_intercept,
             'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept
         }
-        # print(intercept_event)
 
         return intercept_event

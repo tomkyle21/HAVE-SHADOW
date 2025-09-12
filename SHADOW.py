@@ -10,6 +10,7 @@ Here is what must be done prior to running this script:
 import numpy as np
 import pandas as pd
 from Utils.DataReduction import *
+pd.options.mode.chained_assignment = None
 
 if __name__ == "__main__":
     # Define file paths
