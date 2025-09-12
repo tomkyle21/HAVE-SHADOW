@@ -36,14 +36,17 @@ if __name__ == "__main__":
     flight_data = brute_force_merge_airspeed(flight_data, lead_airspeed_data, wing_airpseed_data) # this line takes a minute ...
 
     # Query the user to understand how many scenarios were flown in the flight
-    num_scenarios = len(input_data)
+    # num_scenarios = len(input_data)
+    input_data = input_data[input_data['Scenario_Num'].notna()]
+    input_data['Scenario_Num'] = input_data['Scenario_Num'].astype(int)
+    num_scenarios = input_data['Scenario_Num'].max()
+    print(f"Detected {num_scenarios} scenarios in the input data.")
 
     # generate a blank dataframe to hold the MOPs
     mops_df = pd.DataFrame()
 
     # define sortie_df to hold all the data from the flight
     Altitude_Col = 'Altitude'
-    # Airpseed_Col = 'True_Airspeed'  # TODO - NO AIRSPEED FOR NOW!!
     cols_L29s = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt', 'Heading', 'Roll',
                  'Latitude', 'Longitude', Altitude_Col]
     cols_CMs = ['Timestamp', 'SampleDate', 'SampleTime', 'Configuration', 'Scenario', 'MarkingTxt',
@@ -75,7 +78,6 @@ if __name__ == "__main__":
         scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
         scenario_start_time = scenario_data['SampleTime'].min()
         scenario_end_time = scenario_data['SampleTime'].max()
-        scenario_duration = (scenario_end_time - scenario_start_time).total_seconds()
         # record the first lead_alt and wing_alt in the defined scenario
         lead_alt = scenario_data[scenario_data['MarkingTxt'] == 'AMBUSH51']['Altitude'].iloc[0]
         wing_alt = scenario_data[scenario_data['MarkingTxt'] == 'HAWK11']['Altitude'].iloc[0]
@@ -94,7 +96,6 @@ if __name__ == "__main__":
         scenario_mops['Scenario_within_flight'] = scenario
         scenario_mops['Scenario_Type'] = scenario_type
         scenario_mops['Autonomy_Config'] = autonomy_config
-        scenario_mops['Scenario_Duration_s'] = scenario_duration
         scenario_mops['Num_Tactical_Comms'] = num_tac_comms
         scenario_mops['Correct_Sort'] = correct_sort
         scenario_mops['Num_CMs'] = num_CMs
@@ -102,8 +103,6 @@ if __name__ == "__main__":
         scenario_mops['Wingman_Altitude_MSL_ft'] = wing_alt
         scenario_mops['CM_Airspeed_kt'] = CM_airspeed
         scenario_mops['Scenario_Start_Time'] = scenario_start_time
-        scenario_mops['Scenario_End_Time'] = scenario_end_time
-        scenario_mops['Scenario_Duration_s'] = (scenario_end_time - scenario_start_time).total_seconds()
 
         # --- Altitude Deviation MOPs ---      
         alt_devs_lead = altitude_deviation(scenario_data, role='Lead', assigned_alt=int(lead_alt), alt_block_radius=500)
@@ -163,8 +162,16 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Bank_Angle_at_Intercept_deg'] = intercept_mops['Bank_Angle_at_Intercept_deg']
                 scenario_mops[f'CM{i}_Distance_from_CM_at_Intercept_nm'] = intercept_mops['Distance_from_CM_at_Intercept_nm']
 
+        # --- Define Scenario End Time, make it robust to terminate after picture is clean --- 
+        max_cm_time = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['SampleTime'].max()
+        if pd.notna(max_cm_time) and max_cm_time < scenario_end_time:
+            scenario_end_time = max_cm_time
+        scenario_duration = (scenario_end_time - scenario_start_time).total_seconds()
+        scenario_mops['Scenario_End_Time'] = scenario_end_time
+        scenario_mops['Scenario_Duration_s'] = scenario_duration
+
         # --- SAM Identification MOPs ---
-        SAM_data = scenario_data[scenario_data['MarkingTxt'] == 'SAM']
+        SAM_data = scenario_data[(scenario_data['MarkingTxt'] == 'SAM') & (scenario_data['SampleTime'] <= scenario_end_time)]
         SAM_data['SampleTime'] = pd.to_datetime(SAM_data['SampleTime'])
         num_sams = SAM_data['EntId'].nunique()
         SAM_IDs = SAM_data['EntId'].unique()
@@ -186,17 +193,13 @@ if __name__ == "__main__":
             scenario_mops[f'SAM{i}_EntId'] = sam_ID
             SAM_spawn_time = SAM_data[SAM_data['EntId'] == sam_ID]['SampleTime'].min()
             SAM_spawn_date = SAM_spawn_time.date()
-            # make scenario_mops[f'SAM{i}_Time_to_ID_s'] 30s
             scenario_mops[f'SAM{i}_Time_to_ID_s'] = 30
             # check to see if there is a SAM_ID_Time within SAM_spawn_time to SAM_spawn_time + 30s, replace time_to_ID_s if so
             for sam_id_time in SAM_ID_Times:
                 if SAM_spawn_time <= sam_id_time <= (SAM_spawn_time + pd.DateOffset(seconds=30)):
                     scenario_mops[f'SAM{i}_Time_to_ID_s'] = (sam_id_time - SAM_spawn_time).total_seconds()
 
-
-
         mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
-
 
     # Save MOPs to CSV
     mops_df.to_csv(f'{output_file_path}/MOPs_{lead_pilot}_Flight{flight_number}.csv', index=False)

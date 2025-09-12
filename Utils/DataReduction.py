@@ -197,7 +197,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
             'Altitude_at_Intercept_ft': altitude_at_intercept,
             'Altitude_Offset_at_Intercept_ft': alt_offset_at_intercept,
             'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept,
-            'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept
+            'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept,
+            'CM_Last_Seen_Time': cm_last_time
         }
 
         return intercept_event
