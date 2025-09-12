@@ -148,8 +148,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
     cond_vel = angle_between_vec <= 30
 
     # --- CONDITION 2: Inside trailing cone POSITION ---
-    pos_vector_ac = np.column_stack([df['EcefX_ac'], df['EcefY_ac'], df['EcefZ_ac']])
-    pos_vector_cm = np.column_stack([df['EcefX_cm'], df['EcefY_cm'], df['EcefZ_cm']])
+    pos_vector_ac = np.column_stack([df['ECEFX_ac'], df['ECEFY_ac'], df['ECEFZ_ac']])
+    pos_vector_cm = np.column_stack([df['ECEFX_cm'], df['ECEFY_cm'], df['ECEFZ_cm']])
     rel_pos = pos_vector_cm - pos_vector_ac
     dot = np.sum(rel_pos * vel_vector_cm, axis=1)
     angle_between_pos = np.degrees(np.arccos(np.clip(dot / (np.linalg.norm(rel_pos, axis=1) * np.linalg.norm(vel_vector_cm, axis=1)), -1, 1)))
