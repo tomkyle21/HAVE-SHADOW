@@ -81,7 +81,7 @@ def altitude_deviation(df, role, assigned_alt, alt_block_radius=500):
     return num_violations, altitude_deviation_integral
 
 
-def is_within_cone(scenario_data, cm_index, role, scenario_alt):
+def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_time=None):
     """
     Determine if an aircraft (lead/wingman) is within intercept criteria:
       1) Bank angle within ±10°
@@ -179,8 +179,25 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
         airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
         bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
         distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
-
         cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
+
+        # TODO - CHANGE MELD RANGE FOR CMs 3-?
+        meld_range = 2.5
+
+        # look back in the data from the first intecept point to determine the time the cm transitioned into meld_range - Experimental
+        lookback_df = df.loc[:df[intercept_criteria].index[0]].copy()
+        if previous_int_time is not None:
+            lookback_df = lookback_df[(lookback_df['SampleTime_cm'] >= previous_int_time)]
+        lookback_df['In_Meld_Range'] = lookback_df['distance_nm'] <= meld_range
+        lookback_df['Meld_Transition'] = lookback_df['In_Meld_Range'].ne(lookback_df['In_Meld_Range'].shift())
+        if lookback_df['Meld_Transition'].any():
+            meld_transition_time = lookback_df[lookback_df['Meld_Transition'] & lookback_df['In_Meld_Range']]['SampleTime_cm'].min() # CHANGED TO MIN
+            MOP_time_to_intercept = (df.loc[intercept_criteria, 'SampleTime_cm'].values[0] - meld_transition_time).total_seconds()
+            aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_cm'] == meld_transition_time]['angle_between_vel'].values[0]
+
+            if previous_int_time is not None: # DELETE ME
+                print('Distance to CM 5 at previous intercept time:', lookback_df.iloc[(lookback_df['SampleTime_cm'] - previous_int_time).abs().argsort()[:1]]['distance_nm'].values[0], 'nm')
+
 
         # define a dictionary that records the intercept event
         intercept_event = {
@@ -188,7 +205,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
             'CM_Index': cm_index,
             'Intercept_Time': cm_int_time,
             'Time_to_Consent_s': (cm_last_time - cm_int_time).total_seconds(),
-            'Time_to_Intercept_s': (cm_int_time - scenario_start_time).total_seconds(),
+            'Time_to_Intercept_s_from_start': (cm_int_time - scenario_start_time).total_seconds(),
             'Airspeed_at_Intercept_kt': airspeed_at_intercept,
             'Airspeed_Diff_at_Intercept_kt': airspeed_diff_at_intercept,
             'Heading_at_Intercept_deg': heading_at_intercept,
@@ -198,7 +215,10 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt):
             'Altitude_Offset_at_Intercept_ft': alt_offset_at_intercept,
             'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept,
             'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept,
-            'CM_Last_Seen_Time': cm_last_time
+            'CM_Last_Seen_Time': cm_last_time,
+            'MOP_Time_to_Intercept_s': MOP_time_to_intercept if 'MOP_time_to_intercept' in locals() else np.nan,
+            'Aspect_Angle_at_MELD_Entry_deg': aspect_angle_at_meld if 'aspect_angle_at_meld' in locals() else np.nan,
+            'CM_Int_Time': cm_int_time
         }
 
         return intercept_event
