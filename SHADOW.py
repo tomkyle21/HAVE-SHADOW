@@ -27,7 +27,7 @@ if __name__ == "__main__":
     flight_data = pd.read_csv('Data/Lead/Lead_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
     lead_airspeed_data = pd.read_csv('Data/Lead/Lead_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
     wing_airpseed_data = pd.read_csv('Data/Wingman/Wing_{}_{}_Airspeed.csv'.format(lead_pilot, flight_number), low_memory=False)
-    # tasking_data = pd.read_csv('Data/Tasking/Tasking_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
+    tasking_data = pd.read_csv('Data/Tasking/Tasking_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
 
     # Load Inputs
     input_data = pd.read_csv('Inputs/Input_{}_{}.csv'.format(lead_pilot, flight_number), low_memory=False)
@@ -97,7 +97,10 @@ if __name__ == "__main__":
         scenario_mops['Scenario_within_flight'] = scenario
         scenario_mops['Scenario_Type'] = scenario_type
         scenario_mops['Autonomy_Config'] = autonomy_config
-        scenario_mops['Num_Tactical_Comms'] = num_tac_comms
+        if autonomy_config in ['HH', 'AH']:
+            scenario_mops['Num_Tactical_Comms'] = num_tac_comms
+        if autonomy_config in ['AA', 'HA']:
+            scenario_mops['Num_Tactical_Comms'] = 0
         scenario_mops['Correct_Sort'] = correct_sort
         scenario_mops['Num_CMs'] = num_CMs
         scenario_mops['Lead_Altitude_MSL_ft'] = lead_alt
@@ -137,7 +140,7 @@ if __name__ == "__main__":
         most_recent_wing_int_time = None
         for i, (cm_ID, time_to_intercept) in enumerate(CM_time_to_intercept_dict.items(), start=1):
             if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, previous_int_time=None)
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, previous_int_time=most_recent_lead_int_time)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
@@ -194,7 +197,7 @@ if __name__ == "__main__":
                     print(f"CM {cm_ID} (Int 4) intercepted by {cm_int_role_4} at {cm_int_time_4}")
 
             elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=None)
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
@@ -218,6 +221,7 @@ if __name__ == "__main__":
                     cm_int_role_4 = intercept_mops['Interceptor Role']
                 if i == 5: # DELETE ME
                     cm_int_role_5 = intercept_mops['Interceptor Role']
+                    cm_int_time_5 = intercept_mops['CM_Int_Time']
                     if cm_int_role_5 == cm_int_role_3:
                         is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_5, scenario_alt=wing_alt, previous_int_time=cm_int_time_3)
                         print(f"CM {cm_ID} (Int 5) intercepted by {cm_int_role_5} at {cm_int_time_5}, same as Int 3")
@@ -286,14 +290,24 @@ if __name__ == "__main__":
                     scenario_mops[f'SAM{i}_Time_to_ID_s'] = (sam_id_time - SAM_spawn_time).total_seconds()
 
         # --- Tasking MOPs ---
-        # if scenario == 'AA':
-        #     tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
-        #     num_tasking_comms = tasking_data_scenario[(scenario_data['ReceivingEntityID_Site']==73) & (scenario_data['ActionID'].isin(['1','4','6']))]['RequestID'].nunique() # TODO - DOUBLE CHECK ACTIONIDsnuts
-        # if scenario == 'HA':
-        #     tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
-        #     num_tasking_comms = tasking_data_scenario[(scenario_data['ReceivingEntityID_Site']==73) & (scenario_data['ActionID'].isin(['1','4','6']))]['RequestID'].nunique() # TODO - DOUBLE CHECK ACTIONIDsnuts
-
-
+        if autonomy_config == 'AA':
+            tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
+            subset = tasking_data_scenario.loc[
+                tasking_data_scenario['ReceivingEntityID_Site'] == 73, 
+                ['RequestID', 'RequestStatus']
+            ]
+            num_tasking_comms = subset.drop_duplicates().shape[0]
+            print(f"Scenario {scenario} has {num_tasking_comms} tasking communications.")
+            scenario_mops['Num_Tactical_Comms'] += num_tasking_comms # TODO - this isn't saving ??
+        if autonomy_config == 'HA':
+            tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
+            subset = tasking_data_scenario.loc[
+                tasking_data_scenario['ReceivingEntityID_Site'] == 73, 
+                ['RequestID', 'RequestStatus']
+            ]
+            num_tasking_comms = subset.drop_duplicates().shape[0]            
+            print(f"Scenario {scenario} has {num_tasking_comms} tasking communications.")
+            scenario_mops['Num_Tactical_Comms'] += num_tasking_comms
 
         mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
 

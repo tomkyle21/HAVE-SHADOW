@@ -30,5 +30,8 @@ Subject Number Mapping:
 6: Elvis
 7: Flash
 8: Mach
+9: Savage
+10: Pig
+
 
 

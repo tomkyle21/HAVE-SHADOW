@@ -182,17 +182,19 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
         cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
 
         # TODO - CHANGE MELD RANGE FOR CMs 3-?
-        meld_range = 2.5
+        meld_range = 2,5
 
         # look back in the data from the first intecept point to determine the time the cm transitioned into meld_range - Experimental
-        lookback_df = df.loc[:df[intercept_criteria].index[0]].copy()
+        lookback_df = df.copy() # THIS IS WHERE THE PROBLEM IS/WAS 
         if previous_int_time is not None:
+            previous_int_time = pd.to_datetime(previous_int_time)
+            lookback_df['SampleTime_cm'] = pd.to_datetime(lookback_df['SampleTime_cm'])
             lookback_df = lookback_df[(lookback_df['SampleTime_cm'] >= previous_int_time)]
         lookback_df['In_Meld_Range'] = lookback_df['distance_nm'] <= meld_range
         lookback_df['Meld_Transition'] = lookback_df['In_Meld_Range'].ne(lookback_df['In_Meld_Range'].shift())
         if lookback_df['Meld_Transition'].any():
             meld_transition_time = lookback_df[lookback_df['Meld_Transition'] & lookback_df['In_Meld_Range']]['SampleTime_cm'].min() # CHANGED TO MIN
-            MOP_time_to_intercept = (df.loc[intercept_criteria, 'SampleTime_cm'].values[0] - meld_transition_time).total_seconds()
+            MOP_time_to_intercept = (cm_int_time - meld_transition_time).total_seconds()
             aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_cm'] == meld_transition_time]['angle_between_vel'].values[0]
 
             if previous_int_time is not None: # DELETE ME
@@ -216,8 +218,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
             'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept,
             'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept,
             'CM_Last_Seen_Time': cm_last_time,
-            'MOP_Time_to_Intercept_s': MOP_time_to_intercept if 'MOP_time_to_intercept' in locals() else np.nan,
-            'Aspect_Angle_at_MELD_Entry_deg': aspect_angle_at_meld if 'aspect_angle_at_meld' in locals() else np.nan,
+            'MOP_Time_to_Intercept_s': MOP_time_to_intercept,
+            'Aspect_Angle_at_MELD_Entry_deg': aspect_angle_at_meld,
             'CM_Int_Time': cm_int_time
         }
 
