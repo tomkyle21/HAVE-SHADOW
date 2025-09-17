@@ -108,8 +108,6 @@ if __name__ == "__main__":
         scenario_mops['CM_Airspeed_kt'] = CM_airspeed
         scenario_mops['Scenario_Start_Time'] = scenario_start_time
 
-        # --- TODO - Add Tactical Comms MOPs for Autonomy Configurations ---
-
         # --- Altitude Deviation MOPs ---      
         alt_devs_lead = altitude_deviation(scenario_data, role='Lead', assigned_alt=int(lead_alt), alt_block_radius=500)
         alt_devs_wing = altitude_deviation(scenario_data, role='Wingman', assigned_alt=int(wing_alt), alt_block_radius=500)
@@ -156,45 +154,7 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Distance_from_CM_at_Intercept_nm'] = intercept_mops['Distance_from_CM_at_Intercept_nm']
                 scenario_mops[f'CM{i}_Aspect_at_MELD_Range_deg'] = intercept_mops['Aspect_Angle_at_MELD_Entry_deg']
                 most_recent_lead_int_time = intercept_mops['CM_Int_Time']
-                if i == 3: # DELETE ME
-                    cm_int_time_3 = intercept_mops['CM_Int_Time']
-                    cm_int_role_3 = intercept_mops['Interceptor Role']
-                if i == 4: # DELETE ME
-                    cm_int_time_4 = intercept_mops['CM_Int_Time']
-                    cm_int_role_4 = intercept_mops['Interceptor Role']
-                if i == 5: # DELETE ME
-                    cm_int_time_5 = intercept_mops['CM_Int_Time']
-                    cm_int_role_5 = intercept_mops['Interceptor Role']
-                    if cm_int_role_5 == cm_int_role_3:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_5, scenario_alt=wing_alt, previous_int_time=cm_int_time_3)
-                        print(f"CM {cm_ID} (Int 5) intercepted by {cm_int_role_5} at {cm_int_time_5}, same as Int 3")
-                    elif cm_int_role_5 == cm_int_role_4:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_5, scenario_alt=wing_alt, previous_int_time=cm_int_time_4)
-                        print(f"CM {cm_ID} (Int 5) intercepted by {cm_int_role_5} at {cm_int_time_5}, same as Int 4")
-                if i == 1: # DELETE ME
-                    cm_int_time_1 = intercept_mops['CM_Int_Time']
-                    cm_int_role_1 = intercept_mops['Interceptor Role']
-                    print(f"CM {cm_ID} (Int 1) intercepted by {cm_int_role_1} at {cm_int_time_1}")
-                if i == 2: # DELETE ME
-                    cm_int_time_2 = intercept_mops['CM_Int_Time']
-                    cm_int_role_2 = intercept_mops['Interceptor Role']
-                    print(f"CM {cm_ID} (Int 2) intercepted by {cm_int_role_2} at {cm_int_time_2}")
-                if i == 3: # DELETE ME
-                    cm_int_role_3 = intercept_mops['Interceptor Role']
-                    cm_int_time_3 = intercept_mops['CM_Int_Time']
-                    if cm_int_role_3 == cm_int_role_1:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_3, scenario_alt=wing_alt, previous_int_time=cm_int_time_1)
-                    elif cm_int_role_3 == cm_int_role_2:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_3, scenario_alt=wing_alt, previous_int_time=cm_int_time_2)
-                    print(f"CM {cm_ID} (Int 3) intercepted by {cm_int_role_3} at {cm_int_time_3}")
-                if i == 4: # DELETE ME
-                    cm_int_role_4 = intercept_mops['Interceptor Role']
-                    cm_int_time_4 = intercept_mops['CM_Int_Time']
-                    if cm_int_role_4 == cm_int_role_1:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_4, scenario_alt=wing_alt, previous_int_time=cm_int_time_1)
-                    elif cm_int_role_4 == cm_int_role_2:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_4, scenario_alt=wing_alt, previous_int_time=cm_int_time_2)
-                    print(f"CM {cm_ID} (Int 4) intercepted by {cm_int_role_4} at {cm_int_time_4}")
+
 
             elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
                 intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time)
@@ -213,44 +173,6 @@ if __name__ == "__main__":
                 scenario_mops[f'CM{i}_Distance_from_CM_at_Intercept_nm'] = intercept_mops['Distance_from_CM_at_Intercept_nm']
                 scenario_mops[f'CM{i}_Aspect_at_MELD_Range_deg'] = intercept_mops['Aspect_Angle_at_MELD_Entry_deg']
                 most_recent_wing_int_time = intercept_mops['CM_Int_Time']
-                if i == 3: # DELETE ME
-                    cm_int_time_3 = intercept_mops['CM_Int_Time']
-                    cm_int_role_3 = intercept_mops['Interceptor Role']
-                if i == 4: # DELETE ME
-                    cm_int_time_4 = intercept_mops['CM_Int_Time']
-                    cm_int_role_4 = intercept_mops['Interceptor Role']
-                if i == 5: # DELETE ME
-                    cm_int_role_5 = intercept_mops['Interceptor Role']
-                    cm_int_time_5 = intercept_mops['CM_Int_Time']
-                    if cm_int_role_5 == cm_int_role_3:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_5, scenario_alt=wing_alt, previous_int_time=cm_int_time_3)
-                        print(f"CM {cm_ID} (Int 5) intercepted by {cm_int_role_5} at {cm_int_time_5}, same as Int 3")
-                    elif cm_int_role_5 == cm_int_role_4:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_5, scenario_alt=wing_alt, previous_int_time=cm_int_time_4)
-                        print(f"CM {cm_ID} (Int 5) intercepted by {cm_int_role_5} at {cm_int_time_5}, same as Int 4")
-                if i == 1: # DELETE ME
-                    cm_int_time_1 = intercept_mops['CM_Int_Time']
-                    cm_int_role_1 = intercept_mops['Interceptor Role']
-                    print(f"CM {cm_ID} (Int 1) intercepted by {cm_int_role_1} at {cm_int_time_1}")
-                if i == 2: # DELETE ME
-                    cm_int_time_2 = intercept_mops['CM_Int_Time']
-                    cm_int_role_2 = intercept_mops['Interceptor Role']
-                    print(f"CM {cm_ID} (Int 2) intercepted by {cm_int_role_2} at {cm_int_time_2}")
-                if i == 3: # DELETE ME
-                    cm_int_role_3 = intercept_mops['Interceptor Role']
-                    if cm_int_role_3 == cm_int_role_1:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_3, scenario_alt=wing_alt, previous_int_time=cm_int_time_1)
-                    elif cm_int_role_3 == cm_int_role_2:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_3, scenario_alt=wing_alt, previous_int_time=cm_int_time_2)
-                    print(f"CM {cm_ID} (Int 3) intercepted by {cm_int_role_3}")
-                if i == 4: # DELETE ME
-                    cm_int_role_4 = intercept_mops['Interceptor Role']
-                    cm_int_time_4 = intercept_mops['CM_Int_Time']
-                    if cm_int_role_4 == cm_int_role_1:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_4, scenario_alt=wing_alt, previous_int_time=cm_int_time_1)
-                    elif cm_int_role_4 == cm_int_role_2:
-                        is_within_cone(scenario_data, cm_index=cm_ID, role=cm_int_role_4, scenario_alt=wing_alt, previous_int_time=cm_int_time_2)
-                    print(f"CM {cm_ID} (Int 4) intercepted by {cm_int_role_4} at {cm_int_time_4}")
 
         # --- Define Scenario End Time, make it robust to terminate after picture is clean --- 
         max_cm_time = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['SampleTime'].max()

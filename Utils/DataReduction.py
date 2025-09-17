@@ -103,7 +103,17 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
 
     df_cm = scenario_data[scenario_data['EntId'] == cm_index].copy()
     df_ac = scenario_data[scenario_data['MarkingTxt'] == marking].copy()
-    df = pd.merge_asof(df_ac.sort_values('Timestamp'), df_cm.sort_values('Timestamp'), on='Timestamp', suffixes=('_ac', '_cm'))
+    # df = pd.merge_asof(df_ac.sort_values('Timestamp'), df_cm.sort_values('Timestamp'), on='Timestamp', suffixes=('_ac', '_cm'),
+    #                    tolerance=pd.Timedelta("1ms"),  direction='nearest')
+    df = pd.merge_asof(
+    df_cm.sort_values('Timestamp'), 
+    df_ac.sort_values('Timestamp'),   
+    on='Timestamp',
+    suffixes=('_cm', '_ac'),
+    tolerance=pd.Timedelta("300ms"),
+    direction='nearest'
+)
+
     df = df.dropna(subset=['EntId_cm'])  # drop rows where no matching CM data
     if df.empty:
         return pd.Series([False]*len(scenario_data), index=scenario_data.index)
@@ -121,6 +131,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
 
     # get the SampleTime where the cm_index is last seen
     cm_last_time = df_cm['SampleTime'].max()
+
+    # TODO - get the cm kill time from PBU data if available, redefine intercept. 
 
     # get the scenario start time
     scenario_data['SampleTime'] = pd.to_datetime(scenario_data['SampleTime'])   
@@ -179,26 +191,44 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
         airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
         bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
         distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
-        cm_int_time = df['SampleTime_cm'][intercept_criteria].min()
+        cm_int_time = df['SampleTime_ac'][intercept_criteria].min()
 
         # TODO - CHANGE MELD RANGE FOR CMs 3-?
-        meld_range = 2,5
+        meld_range = 2.5
 
         # look back in the data from the first intecept point to determine the time the cm transitioned into meld_range - Experimental
         lookback_df = df.copy() # THIS IS WHERE THE PROBLEM IS/WAS 
-        if previous_int_time is not None:
-            previous_int_time = pd.to_datetime(previous_int_time)
-            lookback_df['SampleTime_cm'] = pd.to_datetime(lookback_df['SampleTime_cm'])
-            lookback_df = lookback_df[(lookback_df['SampleTime_cm'] >= previous_int_time)]
         lookback_df['In_Meld_Range'] = lookback_df['distance_nm'] <= meld_range
-        lookback_df['Meld_Transition'] = lookback_df['In_Meld_Range'].ne(lookback_df['In_Meld_Range'].shift())
-        if lookback_df['Meld_Transition'].any():
-            meld_transition_time = lookback_df[lookback_df['Meld_Transition'] & lookback_df['In_Meld_Range']]['SampleTime_cm'].min() # CHANGED TO MIN
-            MOP_time_to_intercept = (cm_int_time - meld_transition_time).total_seconds()
-            aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_cm'] == meld_transition_time]['angle_between_vel'].values[0]
+        if previous_int_time is not None:
+            # previous_int_time = pd.to_datetime(previous_int_time)
+            # lookback_df['SampleTime_cm'] = pd.to_datetime(lookback_df['SampleTime_cm'])
+            # lookback_df = lookback_df[(lookback_df['SampleTime_cm'] >= previous_int_time)]
+            # meld_transition_time is the maximum of the SampleTime_ac where In_Meld_Range is true and previous_int_time
+            previous_int_time = pd.to_datetime(previous_int_time)
+            meld_transition_time = lookback_df[lookback_df['In_Meld_Range']]['SampleTime_ac'].min()
+            print('MELD Transition Time before max with previous intercept time:', meld_transition_time)
+            meld_transition_time = max(meld_transition_time, previous_int_time)
+            print('MELD Transition Time after max with previous intercept time:', meld_transition_time)
+            print('Previous Intercept Time:', previous_int_time)
+            print('cm intercept time:', cm_int_time)
+        elif previous_int_time is None:
+            meld_transition_time = lookback_df[lookback_df['In_Meld_Range']]['SampleTime_ac'].min()
+        # lookback_df['Meld_Transition'] = lookback_df['In_Meld_Range'].ne(lookback_df['In_Meld_Range'].shift())
+        # if lookback_df['Meld_Transition'].any():
+        #     meld_transition_time = lookback_df[lookback_df['Meld_Transition'] & lookback_df['In_Meld_Range']]['SampleTime_cm'].min() # CHANGED TO MIN
+        #     # save lookback_df to csv for debugging
+        #     lookback_df.to_csv(f'lookback_df_cm{cm_index}_{role}.csv', index=False)
+        #     # make meld_transition_time the min of meld_transition_time and previous_int_time
+        #     if previous_int_time is not None:
+        #         meld_transition_time = min(meld_transition_time, previous_int_time) # THIS MF IS NEW .... I THINK
+        MOP_time_to_intercept = (cm_int_time - meld_transition_time).total_seconds()
+        aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_ac'] == meld_transition_time]['angle_between_vel'].values[0]
+        # force aspect_angle_at_meld to be between 0 and 180, for example 190 becomes 170
+        aspect_angle_at_meld = np.abs((aspect_angle_at_meld + 180) % 360 - 180)
+        lookback_df.to_csv(f'lookback_df_cm{cm_index}_{role}.csv', index=False) # DELETE ME
 
-            if previous_int_time is not None: # DELETE ME
-                print('Distance to CM 5 at previous intercept time:', lookback_df.iloc[(lookback_df['SampleTime_cm'] - previous_int_time).abs().argsort()[:1]]['distance_nm'].values[0], 'nm')
+            # if previous_int_time is not None: # DELETE ME
+            #     print('Distance to CM 5 at previous intercept time:', lookback_df.iloc[(lookback_df['SampleTime_cm'] - previous_int_time).abs().argsort()[:1]]['distance_nm'].values[0], 'nm')
 
 
         # define a dictionary that records the intercept event
