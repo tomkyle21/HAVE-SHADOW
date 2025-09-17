@@ -121,11 +121,11 @@ if __name__ == "__main__":
         CM_time_to_intercept_dict = {}
         for cm_ID in CM_EntIds:
             # if within_cone is not empty:
-            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt)
+            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data)
                 CM_time_to_intercept_dict[cm_ID] = intercept_mops['Time_to_Intercept_s_from_start']
-            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt)
+            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, pbu_data=tasking_data) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, pbu_data=tasking_data)
                 CM_time_to_intercept_dict[cm_ID] = intercept_mops['Time_to_Intercept_s_from_start']
         
         CM_time_to_intercept_dict = dict(sorted(CM_time_to_intercept_dict.items(), key=lambda item: item[1]))
@@ -137,12 +137,13 @@ if __name__ == "__main__":
         most_recent_lead_int_time = None
         most_recent_wing_int_time = None
         for i, (cm_ID, time_to_intercept) in enumerate(CM_time_to_intercept_dict.items(), start=1):
-            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, previous_int_time=most_recent_lead_int_time)
+            if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data, previous_int_time=most_recent_lead_int_time)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
                 scenario_mops[f'CM{i}_MOP_Time_to_Intercept_s'] = intercept_mops['MOP_Time_to_Intercept_s']
+                scenario_mops[f'CM{i}_MOP_Time_to_Consent_s'] = intercept_mops['Time_to_Consent_s']
                 scenario_mops[f'CM{i}_Airspeed_at_Intercept_kt'] = intercept_mops['Airspeed_at_Intercept_kt']
                 scenario_mops[f'CM{i}_Airspeed_Diff_at_Intercept_kt'] = intercept_mops['Airspeed_Diff_at_Intercept_kt']
                 scenario_mops[f'CM{i}_Heading_at_Intercept_deg'] = intercept_mops['Heading_at_Intercept_deg']
@@ -156,12 +157,13 @@ if __name__ == "__main__":
                 most_recent_lead_int_time = intercept_mops['CM_Int_Time']
 
 
-            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time)
+            elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, pbu_data=tasking_data) is not None:
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time, pbu_data=tasking_data)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
                 scenario_mops[f'CM{i}_MOP_Time_to_Intercept_s'] = intercept_mops['MOP_Time_to_Intercept_s']
+                scenario_mops[f'CM{i}_MOP_Time_to_Consent_s'] = intercept_mops['Time_to_Consent_s']
                 scenario_mops[f'CM{i}_Airspeed_at_Intercept_kt'] = intercept_mops['Airspeed_at_Intercept_kt']
                 scenario_mops[f'CM{i}_Airspeed_Diff_at_Intercept_kt'] = intercept_mops['Airspeed_Diff_at_Intercept_kt']
                 scenario_mops[f'CM{i}_Heading_at_Intercept_deg'] = intercept_mops['Heading_at_Intercept_deg']

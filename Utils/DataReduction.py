@@ -81,7 +81,7 @@ def altitude_deviation(df, role, assigned_alt, alt_block_radius=500):
     return num_violations, altitude_deviation_integral
 
 
-def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_time=None):
+def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previous_int_time=None):
     """
     Determine if an aircraft (lead/wingman) is within intercept criteria:
       1) Bank angle within ±10°
@@ -95,11 +95,18 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
     Returns a boolean Series indicating if the aircraft meets all criteria for a given timestamp and cm.
     """
 
+    # TODO - Intercept criteria to be graded at kill (as shown in PBU)
+    # TODO - Kill defn defined to be using PBU
+    # TODO - Entering the cone define to be the last time the AC enters the cone before the kill time
+
     # for every entry in scenario_data['EntId']==cm_index, get the nearest entry in scenario_data['MarkingTxt']==role
     if role == 'Lead':
         marking = 'AMBUSH51'
+        pbu_id = 48
     elif role == 'Wingman':
         marking = 'HAWK11'
+        pbu_id = 73
+
 
     df_cm = scenario_data[scenario_data['EntId'] == cm_index].copy()
     df_ac = scenario_data[scenario_data['MarkingTxt'] == marking].copy()
@@ -112,7 +119,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
     suffixes=('_cm', '_ac'),
     tolerance=pd.Timedelta("300ms"),
     direction='nearest'
-)
+) # this merge limits data, but is necessary to avoid cm time slippage
 
     df = df.dropna(subset=['EntId_cm'])  # drop rows where no matching CM data
     if df.empty:
@@ -129,14 +136,13 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
     cm_heading_col = 'Heading_cm'
     bank_col = 'Roll_ac'
 
+    # get the scenario start time
+    scenario_data['SampleTime'] = pd.to_datetime(scenario_data['SampleTime']) 
+    pbu_data['SampleTime'] = pd.to_datetime(pbu_data['SampleTime'])  
+    scenario_start_time = scenario_data['SampleTime'].min()
+
     # get the SampleTime where the cm_index is last seen
     cm_last_time = df_cm['SampleTime'].max()
-
-    # TODO - get the cm kill time from PBU data if available, redefine intercept. 
-
-    # get the scenario start time
-    scenario_data['SampleTime'] = pd.to_datetime(scenario_data['SampleTime'])   
-    scenario_start_time = scenario_data['SampleTime'].min()
 
     # --- CONDITION NO LONGER USED!!: Bank Angle ---
     cond_bank = df[bank_col].abs() <= 10
@@ -182,62 +188,97 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
     if intercept_criteria.any():
         # --- SCENARIO META DATA ---
         # get the calibrated airspeed at the time of intercept
-        airspeed_at_intercept = df.loc[intercept_criteria, 'CalibratedAirspeed_ac'].values[0]
-        heading_at_intercept = df.loc[intercept_criteria, heading_col].values[0]
-        cm_heading_at_intercept = df.loc[intercept_criteria, cm_heading_col].values[0]
-        heading_diff_at_intercept = (heading_at_intercept - cm_heading_at_intercept + 180) % 360 - 180
-        altitude_at_intercept = df.loc[intercept_criteria, alt_col].values[0]
-        alt_offset_at_intercept = np.abs(altitude_at_intercept - scenario_alt)
-        airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
-        bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
-        distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
-        cm_int_time = df['SampleTime_ac'][intercept_criteria].min()
+        # airspeed_at_intercept = df.loc[intercept_criteria, 'CalibratedAirspeed_ac'].values[0]
+        # heading_at_intercept = df.loc[intercept_criteria, heading_col].values[0]
+        # cm_heading_at_intercept = df.loc[intercept_criteria, cm_heading_col].values[0]
+        # heading_diff_at_intercept = (heading_at_intercept - cm_heading_at_intercept + 180) % 360 - 180
+        # altitude_at_intercept = df.loc[intercept_criteria, alt_col].values[0]
+        # alt_offset_at_intercept = np.abs(altitude_at_intercept - scenario_alt)
+        # airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
+        # bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
+        # distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
 
-        # TODO - CHANGE MELD RANGE FOR CMs 3-?
+        # 3 cases
+        pbu_kill_data = pbu_data[pbu_data['PduType'] == 'KILL']
+        # case 1 - FiringEntityID_Site matches pbu_id and TargetEntityID_Entity matches cm_index
+        if pbu_kill_data[(pbu_kill_data['FiringEntityID_Site']==pbu_id) & (pbu_kill_data['TargetEntityID_Entity']==cm_index)].shape[0] > 0:
+            cm_kill_time = pbu_kill_data[(pbu_kill_data['FiringEntityID_Site']==pbu_id) & (pbu_kill_data['TargetEntityID_Entity']==cm_index)]['SampleTime'].min()
+            cm_kill_time = pd.to_datetime(cm_kill_time)
+        # case 2 - FiringEntityID_Site matches pbu_id, but there is no TargetEntityID_Entity match
+        elif pbu_kill_data[(pbu_kill_data['FiringEntityID_Site']==pbu_id)].shape[0] > 0:
+            # find the closest SampleTime in pbu_kill_data to cm_last_time where FiringEntityID_Site matches pbu_id
+            kill_times = pbu_kill_data[pbu_kill_data['FiringEntityID_Site']==pbu_id]['SampleTime']
+            kill_times = pd.to_datetime(kill_times)
+            diffs = (kill_times - cm_last_time).abs()
+            nearest_idx = diffs.idxmin()
+            cm_kill_time_potential = kill_times.loc[nearest_idx]
+            if (cm_kill_time_potential - cm_last_time).total_seconds() <= 10: # make sure the kill time is within 10 seconds of last seen time
+                cm_kill_time = cm_kill_time_potential
+            else:
+                cm_kill_time = cm_last_time
+        else:
+            cm_kill_time = cm_last_time
+        
+        # instead, define the intercept parameters at the time of kill
+        df_at_kill = df[df['SampleTime_ac'] <= cm_kill_time]
+        df_at_kill = df_at_kill.reset_index(drop=True)
+        # airspeed at intercept is the 'CalibratedAirspeed_ac' at the max SampleTime_ac 
+        airspeed_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), 'CalibratedAirspeed_ac']
+        heading_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), heading_col]
+        cm_heading_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), cm_heading_col]
+        heading_diff_at_intercept = (heading_at_intercept - cm_heading_at_intercept + 180) % 360 - 180
+        altitude_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), alt_col]
+        alt_offset_at_intercept = np.abs(altitude_at_intercept - scenario_alt)
+        airspeed_diff_at_intercept = airspeed_at_intercept - df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), 'CM_Airspeed_ac']
+        bank_angle_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), bank_col]
+        distance_from_cm_at_intercept = df_at_kill.loc[df_at_kill['SampleTime_ac'].idxmax(), 'distance_nm']
+
+        # define cm_int time as the most recent time the intercept criteria turned true before the kill time
+        df_before_kill = df[df['SampleTime_ac'] <= cm_kill_time]
+        df_before_kill = df_before_kill.reset_index(drop=True)
+        df_before_kill['Intercept_Transition'] = df_before_kill['Intercept_Criteria'].ne(df_before_kill['Intercept_Criteria'].shift())
+        if df_before_kill['Intercept_Transition'].any():
+            cm_int_time = df_before_kill[df_before_kill['Intercept_Transition'] & df_before_kill['Intercept_Criteria']]['SampleTime_ac'].max()
+        else:
+            # if cm_int_time = df['SampleTime_ac'][intercept_criteria].min() is not NaT, then make it that
+            if not df[df['Intercept_Criteria']]['SampleTime_ac'].min() is pd.NaT:
+                cm_int_time = df[df['Intercept_Criteria']]['SampleTime_ac'].min()
+            else:
+                cm_int_time = cm_kill_time
+
+    
+        # Define MELD range
         meld_range = 2.5
 
-        # look back in the data from the first intecept point to determine the time the cm transitioned into meld_range - Experimental
-        lookback_df = df.copy() # THIS IS WHERE THE PROBLEM IS/WAS 
+        # process the meld range in the lookback_df
+        lookback_df = df.copy() 
         lookback_df['In_Meld_Range'] = lookback_df['distance_nm'] <= meld_range
         if previous_int_time is not None:
-            # previous_int_time = pd.to_datetime(previous_int_time)
-            # lookback_df['SampleTime_cm'] = pd.to_datetime(lookback_df['SampleTime_cm'])
-            # lookback_df = lookback_df[(lookback_df['SampleTime_cm'] >= previous_int_time)]
-            # meld_transition_time is the maximum of the SampleTime_ac where In_Meld_Range is true and previous_int_time
             previous_int_time = pd.to_datetime(previous_int_time)
             meld_transition_time = lookback_df[lookback_df['In_Meld_Range']]['SampleTime_ac'].min()
-            print('MELD Transition Time before max with previous intercept time:', meld_transition_time)
             meld_transition_time = max(meld_transition_time, previous_int_time)
-            print('MELD Transition Time after max with previous intercept time:', meld_transition_time)
-            print('Previous Intercept Time:', previous_int_time)
-            print('cm intercept time:', cm_int_time)
         elif previous_int_time is None:
             meld_transition_time = lookback_df[lookback_df['In_Meld_Range']]['SampleTime_ac'].min()
-        # lookback_df['Meld_Transition'] = lookback_df['In_Meld_Range'].ne(lookback_df['In_Meld_Range'].shift())
-        # if lookback_df['Meld_Transition'].any():
-        #     meld_transition_time = lookback_df[lookback_df['Meld_Transition'] & lookback_df['In_Meld_Range']]['SampleTime_cm'].min() # CHANGED TO MIN
-        #     # save lookback_df to csv for debugging
-        #     lookback_df.to_csv(f'lookback_df_cm{cm_index}_{role}.csv', index=False)
-        #     # make meld_transition_time the min of meld_transition_time and previous_int_time
-        #     if previous_int_time is not None:
-        #         meld_transition_time = min(meld_transition_time, previous_int_time) # THIS MF IS NEW .... I THINK
-        MOP_time_to_intercept = (cm_int_time - meld_transition_time).total_seconds()
-        aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_ac'] == meld_transition_time]['angle_between_vel'].values[0]
-        # force aspect_angle_at_meld to be between 0 and 180, for example 190 becomes 170
-        aspect_angle_at_meld = np.abs((aspect_angle_at_meld + 180) % 360 - 180)
-        lookback_df.to_csv(f'lookback_df_cm{cm_index}_{role}.csv', index=False) # DELETE ME
 
-            # if previous_int_time is not None: # DELETE ME
-            #     print('Distance to CM 5 at previous intercept time:', lookback_df.iloc[(lookback_df['SampleTime_cm'] - previous_int_time).abs().argsort()[:1]]['distance_nm'].values[0], 'nm')
-
+        MOP_time_to_intercept = (cm_kill_time - meld_transition_time).total_seconds()
+        aspect_angle_at_meld = lookback_df.iloc[(lookback_df['SampleTime_ac'] - meld_transition_time).abs().argsort()[:1]]['angle_between_vel'].values[0] # to make it closest
+        # aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_ac'] == meld_transition_time]['angle_between_vel'].values[0] 
+        aspect_angle_at_meld = np.abs((aspect_angle_at_meld + 180) % 360 - 180) # set to 180°
+        
+        # print meld_transition_time, cm_int_time, cm_kill_time, and cm_last_time
+        print(f'Starting CM Index: {cm_index}, Role: {role}')
+        print("Meld Transition Time:", meld_transition_time)
+        print("CM Intercept Time:", cm_int_time)
+        print("CM Kill Time:", cm_kill_time)
+        print("CM Last Seen Time:", cm_last_time)
 
         # define a dictionary that records the intercept event
         intercept_event = {
             'Interceptor Role': role,
             'CM_Index': cm_index,
             'Intercept_Time': cm_int_time,
-            'Time_to_Consent_s': (cm_last_time - cm_int_time).total_seconds(),
-            'Time_to_Intercept_s_from_start': (cm_int_time - scenario_start_time).total_seconds(),
+            'Time_to_Consent_s': (cm_kill_time - cm_int_time).total_seconds(),
+            'Time_to_Intercept_s_from_start': (cm_kill_time - scenario_start_time).total_seconds(),
             'Airspeed_at_Intercept_kt': airspeed_at_intercept,
             'Airspeed_Diff_at_Intercept_kt': airspeed_diff_at_intercept,
             'Heading_at_Intercept_deg': heading_at_intercept,
@@ -247,7 +288,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, previous_int_tim
             'Altitude_Offset_at_Intercept_ft': alt_offset_at_intercept,
             'Bank_Angle_at_Intercept_deg': bank_angle_at_intercept,
             'Distance_from_CM_at_Intercept_nm': distance_from_cm_at_intercept,
-            'CM_Last_Seen_Time': cm_last_time,
+            'CM_Kill_Time': cm_kill_time,
             'MOP_Time_to_Intercept_s': MOP_time_to_intercept,
             'Aspect_Angle_at_MELD_Entry_deg': aspect_angle_at_meld,
             'CM_Int_Time': cm_int_time
