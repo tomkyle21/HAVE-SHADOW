@@ -95,10 +95,6 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
     Returns a boolean Series indicating if the aircraft meets all criteria for a given timestamp and cm.
     """
 
-    # TODO - Intercept criteria to be graded at kill (as shown in PBU)
-    # TODO - Kill defn defined to be using PBU
-    # TODO - Entering the cone define to be the last time the AC enters the cone before the kill time
-
     # for every entry in scenario_data['EntId']==cm_index, get the nearest entry in scenario_data['MarkingTxt']==role
     if role == 'Lead':
         marking = 'AMBUSH51'
@@ -186,18 +182,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
     df['Intercept_Criteria'] = intercept_criteria
 
     if intercept_criteria.any():
-        # --- SCENARIO META DATA ---
-        # get the calibrated airspeed at the time of intercept
-        # airspeed_at_intercept = df.loc[intercept_criteria, 'CalibratedAirspeed_ac'].values[0]
-        # heading_at_intercept = df.loc[intercept_criteria, heading_col].values[0]
-        # cm_heading_at_intercept = df.loc[intercept_criteria, cm_heading_col].values[0]
-        # heading_diff_at_intercept = (heading_at_intercept - cm_heading_at_intercept + 180) % 360 - 180
-        # altitude_at_intercept = df.loc[intercept_criteria, alt_col].values[0]
-        # alt_offset_at_intercept = np.abs(altitude_at_intercept - scenario_alt)
-        # airspeed_diff_at_intercept = airspeed_at_intercept - df.loc[intercept_criteria, 'CM_Airspeed_ac'].values[0]
-        # bank_angle_at_intercept = df.loc[intercept_criteria, bank_col].values[0]
-        # distance_from_cm_at_intercept = df.loc[intercept_criteria, 'distance_nm'].values[0]
-
+        # --- SCENARIO META DATA --- WE now score the intercept at the time of kill, not the time of intercept criteria met ---
         # 3 cases
         pbu_kill_data = pbu_data[pbu_data['PduType'] == 'KILL']
         # case 1 - FiringEntityID_Site matches pbu_id and TargetEntityID_Entity matches cm_index
@@ -239,6 +224,8 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
         df_before_kill['Intercept_Transition'] = df_before_kill['Intercept_Criteria'].ne(df_before_kill['Intercept_Criteria'].shift())
         if df_before_kill['Intercept_Transition'].any():
             cm_int_time = df_before_kill[df_before_kill['Intercept_Transition'] & df_before_kill['Intercept_Criteria']]['SampleTime_ac'].max()
+            if cm_int_time is pd.NaT:
+                cm_int_time = df[df['Intercept_Criteria']]['SampleTime_ac'].min()
         else:
             # if cm_int_time = df['SampleTime_ac'][intercept_criteria].min() is not NaT, then make it that
             if not df[df['Intercept_Criteria']]['SampleTime_ac'].min() is pd.NaT:
@@ -265,13 +252,6 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
         # aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_ac'] == meld_transition_time]['angle_between_vel'].values[0] 
         aspect_angle_at_meld = np.abs((aspect_angle_at_meld + 180) % 360 - 180) # set to 180°
         
-        # print meld_transition_time, cm_int_time, cm_kill_time, and cm_last_time
-        print(f'Starting CM Index: {cm_index}, Role: {role}')
-        print("Meld Transition Time:", meld_transition_time)
-        print("CM Intercept Time:", cm_int_time)
-        print("CM Kill Time:", cm_kill_time)
-        print("CM Last Seen Time:", cm_last_time)
-
         # define a dictionary that records the intercept event
         intercept_event = {
             'Interceptor Role': role,

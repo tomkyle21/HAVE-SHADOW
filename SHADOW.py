@@ -185,7 +185,7 @@ if __name__ == "__main__":
         scenario_mops['Scenario_Duration_s'] = scenario_duration
 
         # --- SAM Identification MOPs ---
-        SAM_data = scenario_data[(scenario_data['MarkingTxt'] == 'SAM') & (scenario_data['SampleTime'] <= scenario_end_time)]
+        SAM_data = scenario_data[(scenario_data['MarkingTxt'] == 'SAM') & (scenario_data['SampleTime'] <= scenario_end_time) & (scenario_data['SampleTime'] >= scenario_start_time)]
         SAM_data['SampleTime'] = pd.to_datetime(SAM_data['SampleTime'])
         num_sams = SAM_data['EntId'].nunique()
         SAM_IDs = SAM_data['EntId'].unique()
@@ -222,7 +222,7 @@ if __name__ == "__main__":
             ]
             num_tasking_comms = subset.drop_duplicates().shape[0]
             print(f"Scenario {scenario} has {num_tasking_comms} tasking communications.")
-            scenario_mops['Num_Tactical_Comms'] += num_tasking_comms # TODO - this isn't saving ??
+            scenario_mops['Num_Tactical_Comms'] += num_tasking_comms
         if autonomy_config == 'HA':
             tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
             subset = tasking_data_scenario.loc[
