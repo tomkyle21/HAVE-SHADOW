@@ -1,0 +1,4 @@
+Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s
+1,Fleischmann,1,C,HH,Y,21,1,11:25:04
+2,Fleischmann,1,C,HA,Y,0,1,11:42:56
+3,Fleischmann,1,D,HA,Y,1,0,

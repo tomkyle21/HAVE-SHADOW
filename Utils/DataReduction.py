@@ -257,7 +257,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
             'Interceptor Role': role,
             'CM_Index': cm_index,
             'Intercept_Time': cm_int_time,
-            'Time_to_Consent_s': (cm_kill_time - cm_int_time).total_seconds(),
+            'Time_to_Consent_s': max((cm_kill_time - cm_int_time).total_seconds(), 0),
             'Time_to_Intercept_s_from_start': (cm_kill_time - scenario_start_time).total_seconds(),
             'Airspeed_at_Intercept_kt': airspeed_at_intercept,
             'Airspeed_Diff_at_Intercept_kt': airspeed_diff_at_intercept,

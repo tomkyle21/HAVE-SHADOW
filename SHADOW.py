@@ -1,6 +1,5 @@
 """
-This module provides the infrastructure for the HAVE SHADOW TMP.
-Specifically, this file and its dependencies take the .csv files from flight test and reduce the data into the pre-defined MOPs.
+This module provides file and its dependencies take the .csv files from flight test and reduce the data into the pre-defined MOPs.
 Here is what must be done prior to running this script:
 1. Ensure that the flight test data is saved properly in a .csv file format using the proper naming convention.
 2. Have either the even numbers or times associated with the scenarios flown.
@@ -73,6 +72,8 @@ if __name__ == "__main__":
         autonomy_config = input_data[input_data['Scenario_Num'] == scenario]['Configuration'].values[0]
         correct_sort = input_data[input_data['Scenario_Num'] == scenario]['Correct_Acquistion'].values[0]
         num_tac_comms = input_data[input_data['Scenario_Num'] == scenario]['Tac_Comms'].values[0]
+
+        # TODO - IF SCENARIO DELTA, CAP AT MIN DELTA TIME
 
         CM_airspeed = 150
 
@@ -221,7 +222,6 @@ if __name__ == "__main__":
                 ['RequestID', 'RequestStatus']
             ]
             num_tasking_comms = subset.drop_duplicates().shape[0]
-            print(f"Scenario {scenario} has {num_tasking_comms} tasking communications.")
             scenario_mops['Num_Tactical_Comms'] += num_tasking_comms
         if autonomy_config == 'HA':
             tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
@@ -230,7 +230,6 @@ if __name__ == "__main__":
                 ['RequestID', 'RequestStatus']
             ]
             num_tasking_comms = subset.drop_duplicates().shape[0]            
-            print(f"Scenario {scenario} has {num_tasking_comms} tasking communications.")
             scenario_mops['Num_Tactical_Comms'] += num_tasking_comms
 
         mops_df = pd.concat([mops_df, pd.DataFrame([scenario_mops])], ignore_index=True)
