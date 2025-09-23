@@ -1,4 +1,4 @@
 Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s,SAM_2_ID_Time_s,SAM_3_ID_Time_s,SAM_4_ID_Time_s,SAM_5_ID_Time_s,SAM_6_ID_Time_s,SAM_7_ID_Time_s,SAM_8_ID_Time_s,SAM_9_ID_Time_s,SAM_10_ID_Time_s,SAM_11_ID_Time_s,SAM_12_ID_Time_s,SAM_13_ID_Time_s,SAM_14_ID_Time_s,SAM_15_ID_Time_s,SAM_16_ID_Time_s
-1,Chan,4,C,HH,Y,18,5,14:29:32,14:30:58 PM,14:32:04 PM,14:33:05 PM,14:33:40 PM,,,,,,,,,,,
-2,Chan,4,C,HA,Y,0,6,,,,,,,,,,,,,,,,
-3,Chan,4,D,AA,Y,0,8,,,,,,,,,,,,,,,,
+1,Chan,4,C,HH,Y,18,5,14:29:32,14:30:58,14:32:04,14:33:05,14:33:40,,,,,,,,,,,
+2,Chan,4,C,HA,Y,0,6,14:41:38,14:43:04,14:44:03,14:45:25,14:45:54,14:48:15,,,,,,,,,,
+3,Chan,4,D,AA,Y,0,8,14:54:32,14:55:15,14:56:26,14:57:10,14:59:15,15:00:09,15:01:38,15:02:50,,,,,,,,

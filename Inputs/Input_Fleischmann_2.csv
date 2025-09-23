@@ -1,4 +1,4 @@
 Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s,SAM_2_ID_Time_s,SAM_3_ID_Time_s,SAM_4_ID_Time_s,SAM_5_ID_Time_s,SAM_6_ID_Time_s,SAM_7_ID_Time_s,SAM_8_ID_Time_s,SAM_9_ID_Time_s,SAM_10_ID_Time_s,SAM_11_ID_Time_s,SAM_12_ID_Time_s,SAM_13_ID_Time_s,SAM_14_ID_Time_s,SAM_15_ID_Time_s,SAM_16_ID_Time_s
-1,Fleischmann,2,C,AH,Y,16,6,15:05:18 PM,15:05:55 PM,15:06:37 PM,15:07:21 PM,15:07:54,15:09:50 PM,,,,,,,,,,
-2,Fleischmann,2,C,AA,Y,0,5,15:18:46 PM,15:19:07 PM,15:19:54 PM,15:21:31 PM,15:23:43 PM,,,,,,,,,,,
-3,Fleischmann,2,D,AA,Y,0,5,15:32:14 PM,15:33:03 PM,15:35:00 PM,15:37:16 PM,15:38:04 PM,,,,,,,,,,,
+1,Fleischmann,2,C,AH,Y,16,6,15:05:18,15:05:55,15:06:37,15:07:21,15:07:54,15:09:50,,,,,,,,,,
+2,Fleischmann,2,C,AA,Y,0,5,15:18:46,15:19:07,15:19:54,15:21:31,15:23:43,,,,,,,,,,,
+3,Fleischmann,2,D,AA,Y,0,5,15:32:14,15:33:03,15:35:00,15:37:16,15:38:04,,,,,,,,,,,

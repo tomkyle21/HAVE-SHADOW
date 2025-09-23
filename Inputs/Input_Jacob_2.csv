@@ -1,6 +1,5 @@
-Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s,SAM_2_ID_Time_s,SAM_3_ID_Time_s,SAM_4_ID_Time_s,SAM_5_ID_Time_s,SAM_5_ID_Time_s.1
-1,Jacob,2,HH,C,Y,24,4,09:04:22,09:05:39,09:07:43,09:08:27,,
-2,Jacob,2,HA,C,Y,2,5,09:15:06,09:16:38,09:17:17,09:18:29,09:19:33,
-3,Jacob,2,HA,C ,Y,0,3,09:50:48,09:52:53,09:53:57,,,
-4,Jacob,2,AH,C,Y,20,6,09:27:00,09:27:55,09:29:00,09:29:50,09:31:44,09:32:49
-5,Jacob,2,AA,C,Y,0,5,09:38:06,09:38:53,09:40:55,09:41:54,09:43:37,
+Scenario_Num,Lead_Pilot,Flight_Number,Scenario,Configuration,Correct_Acquistion,Tac_Comms,SAMS_ID,SAM_1_ID_Time_s,SAM_2_ID_Time_s,SAM_3_ID_Time_s,SAM_4_ID_Time_s,SAM_5_ID_Time_s,SAM_6_ID_Time_s
+1,Jacob,2,C,HH,Y,24,4,09:04:22,09:05:39,09:07:43,09:08:27,,
+2,Jacob,2,C,HA,Y,0,3,09:50:48,09:52:53,09:53:57,,,
+3,Jacob,2,C,AH,Y,20,6,09:27:00,09:27:55,09:29:00,09:29:50,09:31:44,09:32:49
+4,Jacob,2,C,AA,Y,0,5,09:38:06,09:38:53,09:40:55,09:41:54,09:43:37,

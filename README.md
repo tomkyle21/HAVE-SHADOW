@@ -12,7 +12,8 @@ INSTRUCTIONS FOR USE OF SHADOW.py:
 1 - Save data in proper locations using the proper nomenclature:
 	1a - Save the flight's dis_entity_state table for the lead aircraft only into the Data -> Lead folder. 	       Save using the convention 	Lead_Pilot_Flight.csv where Pilot is the pilot's last name with the 	       first letter capitalized, and the Flight is just the sortie number for the campaign (1 sortie is 1 	       flight for each in the 2-ship)
 	1b - Save the flight's raw DAS data (located in the  vdn_flight_state table) in the Lead's folder using 	       the same naming convention. Do the same for the wingman's DAS data, using the same exact 	       naming convention for this file as well (use the lead pilot's name even though it is wingman 	       data).
-	1b - Save the proper Inputs into a CSV file in the Inputs folder using the same naming convention. 	       For this step, you will need the following: Lead Pilot Name (the way it was entered for saving 	       the files), flight number (diddo), each scenario / configuration flown (a scenario will have it's 	       own row in Input_Pilot_Flight.csv), whether or not wing had the correct target acquisition (Y/N), 	       # of tactical comms, the # of SAMs Identified, and the timestamps for each SAM that was 	            	       identified. 
+	1c - Save the proper Inputs into a CSV file in the Inputs folder using the same naming convention. 	       For this step, you will need the following: Lead Pilot Name (the way it was entered for saving 	       the files), flight number (diddo), each scenario / configuration flown (a scenario will have it's 	       own row in Input_Pilot_Flight.csv), whether or not wing had the correct target acquisition (Y/N), 	       # of tactical comms, the # of SAMs Identified, and the timestamps for each SAM that was 	            	       identified. 
+	1d - Save the dis_tasking data for the sortie (only the lead's) using the same naming convention.
 
 2 - Press play on SHADOW.py, and expect to input the Pilot's last name (as entered for saving data) and the flight number (diddo).
 
@@ -32,6 +33,7 @@ Subject Number Mapping:
 8: Mach
 9: Savage
 10: Pig
+11: Assassin
 
 
 

@@ -73,18 +73,22 @@ if __name__ == "__main__":
         correct_sort = input_data[input_data['Scenario_Num'] == scenario]['Correct_Acquistion'].values[0]
         num_tac_comms = input_data[input_data['Scenario_Num'] == scenario]['Tac_Comms'].values[0]
 
-        # TODO - IF SCENARIO DELTA, CAP AT MIN DELTA TIME
-
         CM_airspeed = 150
 
         scenario_data = flight_data[(flight_data['Scenario'] == scenario_type) & (flight_data['Configuration'] == autonomy_config)].copy()
         scenario_start_time = scenario_data['SampleTime'].min()
         scenario_end_time = scenario_data['SampleTime'].max()
+        print('Scenario Type: {}, Start Time: {}, End Time: {}'.format(scenario_type, scenario_start_time, scenario_end_time))
+        if scenario_type == 'D':
+            scenario_end_time = scenario_start_time + pd.DateOffset(minutes=7, second=15)  # Cap Delta scenarios at 7 minutes 15 seconds
+            scenario_data = scenario_data[scenario_data['SampleTime'] <= scenario_end_time]
         # record the first lead_alt and wing_alt in the defined scenario
         lead_alt = scenario_data[scenario_data['MarkingTxt'] == 'AMBUSH51']['Altitude'].iloc[0]
         wing_alt = scenario_data[scenario_data['MarkingTxt'] == 'HAWK11']['Altitude'].iloc[0]
         
         num_CMs = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].nunique()
+        if scenario_type == 'D' and num_CMs > 6:
+            num_CMs = 6
         CM_EntIds = scenario_data[scenario_data['MarkingTxt'] == 'JASSM']['EntId'].unique()
         
         scenario_data['CM_Altitude_Lead'] = lead_alt
@@ -217,6 +221,8 @@ if __name__ == "__main__":
         # --- Tasking MOPs ---
         if autonomy_config == 'AA':
             tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
+            if scenario_type == 'D':
+                tasking_data_scenario = tasking_data_scenario[tasking_data_scenario['SampleTime'] <= scenario_end_time]
             subset = tasking_data_scenario.loc[
                 tasking_data_scenario['ReceivingEntityID_Site'] == 73, 
                 ['RequestID', 'RequestStatus']
@@ -225,6 +231,8 @@ if __name__ == "__main__":
             scenario_mops['Num_Tactical_Comms'] += num_tasking_comms
         if autonomy_config == 'HA':
             tasking_data_scenario = tasking_data[(tasking_data['Scenario'] == scenario_type) & (tasking_data['Configuration'] == autonomy_config)].copy()
+            if scenario_type == 'D':
+                tasking_data_scenario = tasking_data_scenario[tasking_data_scenario['SampleTime'] <= scenario_end_time]
             subset = tasking_data_scenario.loc[
                 tasking_data_scenario['ReceivingEntityID_Site'] == 73, 
                 ['RequestID', 'RequestStatus']
