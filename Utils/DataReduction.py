@@ -81,7 +81,7 @@ def altitude_deviation(df, role, assigned_alt, alt_block_radius=500):
     return num_violations, altitude_deviation_integral
 
 
-def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previous_int_time=None):
+def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previous_int_time=None, pilot='', flight_num='', scenario='', config=''):
     """
     Determine if an aircraft (lead/wingman) is within intercept criteria:
       1) Bank angle within ±10°
@@ -160,7 +160,7 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
     angle_between_vec = np.degrees(np.arccos(np.clip(dot / (np.linalg.norm(vel_vector_cm, axis=1) * np.linalg.norm(vel_vector_ac, axis=1)), -1, 1)))
     df['angle_between_vel'] = angle_between_vec
     cond_vel = angle_between_vec <= 30
-
+ 
     # --- CONDITION 2: Inside trailing cone POSITION ---
     pos_vector_ac = np.column_stack([df['ECEF_X_ac'], df['ECEF_Y_ac'], df['ECEF_Z_ac']])
     pos_vector_cm = np.column_stack([df['ECEF_X_cm'], df['ECEF_Y_cm'], df['ECEF_Z_cm']])
@@ -251,6 +251,10 @@ def is_within_cone(scenario_data, cm_index, role, scenario_alt, pbu_data, previo
         aspect_angle_at_meld = lookback_df.iloc[(lookback_df['SampleTime_ac'] - meld_transition_time).abs().argsort()[:1]]['angle_between_vel'].values[0] # to make it closest
         # aspect_angle_at_meld = lookback_df[lookback_df['SampleTime_ac'] == meld_transition_time]['angle_between_vel'].values[0] 
         aspect_angle_at_meld = np.abs((aspect_angle_at_meld + 180) % 360 - 180) # set to 180°
+
+        # save df to 'CM_Intercept_Data/pilot_flightnum_role_cmindex.csv'
+        # if pilot != '' and flight_num != '':
+        #     df.to_csv(f'CM_Intercept_Data/{pilot}_{flight_num}_{config}_{scenario}_{role}_CM{cm_index}.csv', index=False)
         
         # define a dictionary that records the intercept event
         intercept_event = {

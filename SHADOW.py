@@ -143,7 +143,7 @@ if __name__ == "__main__":
         most_recent_wing_int_time = None
         for i, (cm_ID, time_to_intercept) in enumerate(CM_time_to_intercept_dict.items(), start=1):
             if is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data, previous_int_time=most_recent_lead_int_time)
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Lead', scenario_alt=lead_alt, pbu_data=tasking_data, previous_int_time=most_recent_lead_int_time, pilot=lead_pilot, flight_num=flight_number, scenario=scenario, config=autonomy_config)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
 
             elif is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, pbu_data=tasking_data) is not None:
-                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time, pbu_data=tasking_data)
+                intercept_mops = is_within_cone(scenario_data, cm_index=cm_ID, role='Wingman', scenario_alt=wing_alt, previous_int_time=most_recent_wing_int_time, pbu_data=tasking_data, pilot=lead_pilot, flight_num=flight_number)
                 scenario_mops[f'CM{i}_EntId'] = cm_ID
                 scenario_mops[f'CM{i}_Interceptor Role'] = intercept_mops['Interceptor Role']
                 scenario_mops[f'CM{i}_Time_to_Intercept_s_from_start'] = intercept_mops['Time_to_Intercept_s_from_start']
